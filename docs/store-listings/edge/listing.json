@@ -1,0 +1,24 @@
+{
+  "name": "SecureVoult",
+  "shortDescription": "Zero-knowledge password manager with autofill and breach monitoring.",
+  "longDescription": "SecureVoult is a zero-knowledge, AES-256 encrypted password manager with browser autofill.\n\nFEATURES\n• Autofill login credentials on any website — one click or keyboard shortcut\n• Save new login prompts appear automatically when you log in\n• Zero-knowledge encryption: your master password never leaves your device\n• AES-256 + PBKDF2 vault encryption (100,000 rounds)\n• Breach monitoring: checks passwords against HaveIBeenPwned without revealing them\n• Secure clipboard copy with configurable auto-clear timeout\n• Works with Chrome, Edge, Brave, and Opera\n\nPRIVACY\nSecureVoult cannot read your passwords. Your vault is encrypted locally before it ever reaches our servers. We use k-anonymity (HIBP range API) for breach checks — we never send your actual password hashes to any external service.\n\nPERMISSIONS EXPLAINED\n• storage: Save your encrypted vault locally\n• activeTab: Detect login forms on the current tab\n• tabs: Navigate to the vault interface when requested\n• contextMenus: Right-click \"Fill with SecureVoult\" shortcut\n• scripting: Inject autofill into login forms\n• http://*/* https://*/*: Required to detect and fill login forms across all websites\n\nSETUP\nInstall the extension, click the toolbar icon, and sign in with your SecureVoult account. Your encrypted vault syncs automatically (Pro plan required for cross-device sync).\n\nSOURCE / PRIVACY POLICY\nhttps://securevoult.com/privacy",
+  "category": "Productivity",
+  "language": "en-GB",
+  "developerName": "SecureVoult Ltd",
+  "privacyPolicyUrl": "https://securevoult.com/privacy",
+  "supportUrl": "https://securevoult.com/security",
+  "websiteUrl": "https://securevoult.com",
+  "submitUrl": "https://partner.microsoft.com/en-us/dashboard/microsoftedge/overview",
+  "uploadInstructions": [
+    "1. Use the same securevoult-chrome.zip (Edge uses the same MV3 format)",
+    "2. Go to: https://partner.microsoft.com/en-us/dashboard/microsoftedge/overview",
+    "3. Click \"Create extension\" → upload the ZIP",
+    "4. Fill in fields from edge/listing.json",
+    "5. Submit for review (1-7 business days)"
+  ],
+  "notes": [
+    "Edge Add-ons accepts the identical Chrome MV3 ZIP — no changes needed.",
+    "Microsoft requires a Partner Center account (free).",
+    "Enable \"Availability: All regions\" unless you want to restrict distribution."
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "Password Manager Extension",
+  "version": "1.0.0",
+  "description": "Zero-knowledge password manager with team sharing",
+  "author": "Password Manager Team",
+  "homepage": "https://d96a06d6-daf6-47a0-ab15-218359be77dd.canvases.tempo.build",
+  "features": [
+    "Zero-knowledge encryption",
+    "Team password sharing", 
+    "Auto-fill functionality",
+    "Cross-platform sync",
+    "Secure vault access"
+  ],
+  "permissions_explained": {
+    "storage": "Store encrypted vault data locally",
+    "activeTab": "Access current tab for auto-fill",
+    "tabs": "Open vault in new tab",
+    "contextMenus": "Add right-click menu options",
+    "scripting": "Inject auto-fill scripts"
+  }
+}

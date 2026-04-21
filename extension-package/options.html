@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureVoult — Options</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+            background: hsl(222 47% 5%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container { max-width: 720px; margin: 0 auto; padding: 40px 24px; }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+        .header h1 span { background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .card {
+            background: hsl(222 40% 8%);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+        .card p { font-size: 14px; color: #94a3b8; line-height: 1.6; margin-bottom: 16px; }
+        .feature-list { list-style: none; space-y: 8px; }
+        .feature-list li { font-size: 14px; color: #94a3b8; padding: 6px 0; display: flex; align-items: center; gap: 8px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); flex-shrink: 0; }
+        .btn {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6L12 2z" fill="white" fill-opacity="0.9"/>
+                    <circle cx="12" cy="12" r="2.5" fill="hsl(222 47% 5%)"/>
+                    <rect x="11" y="13.5" width="2" height="3" rx="1" fill="hsl(222 47% 5%)"/>
+                </svg>
+            </div>
+            <h1>Secure<span>Voult</span> Extension</h1>
+        </div>
+
+        <div class="card">
+            <h2>Extension installed successfully</h2>
+            <p>Your SecureVoult browser extension is ready. Click the icon in your toolbar to access your vault on any login page.</p>
+            <a href="#" id="openVault" class="btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Open SecureVoult
+            </a>
+        </div>
+
+        <div class="card">
+            <h2>What you can do</h2>
+            <ul class="feature-list">
+                <li><span class="dot"></span>Auto-fill passwords on any login page</li>
+                <li><span class="dot"></span>Copy usernames and passwords with one click</li>
+                <li><span class="dot"></span>Generate strong passwords instantly</li>
+                <li><span class="dot"></span>Zero-knowledge end-to-end encryption</li>
+                <li><span class="dot"></span>Smart form detection across all sites</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('openVault').addEventListener('click', function(e) {
+            e.preventDefault();
+            chrome.tabs.create({ url: 'http://localhost:3000' });
+        });
+    </script>
+</body>
+</html>

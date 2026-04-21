@@ -1,0 +1,142 @@
+/**
+ * Rate limiting — server-side, per-IP sliding window.
+ *
+ * Current implementation: in-memory (Node.js process).
+ * Works correctly for single-process deployments (local dev, single Vercel region).
+ *
+ * Upgrade path: swap `store` for a Redis/Upstash adapter behind the same
+ * `RateLimitStore` interface — no call-site changes needed.
+ */
+
+// ── Store interface ─────────────────────────────────────────────────────────
+
+interface RateLimitRecord {
+  count: number;
+  windowStart: number;
+}
+
+interface RateLimitStore {
+  get(key: string): Promise<RateLimitRecord | null>;
+  set(key: string, record: RateLimitRecord, ttlMs: number): Promise<void>;
+}
+
+// ── In-memory store ─────────────────────────────────────────────────────────
+
+class InMemoryStore implements RateLimitStore {
+  private map = new Map<string, { record: RateLimitRecord; expiresAt: number }>();
+
+  async get(key: string): Promise<RateLimitRecord | null> {
+    const entry = this.map.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.map.delete(key);
+      return null;
+    }
+    return entry.record;
+  }
+
+  async set(key: string, record: RateLimitRecord, ttlMs: number): Promise<void> {
+    this.map.set(key, { record, expiresAt: Date.now() + ttlMs });
+  }
+}
+
+// Singleton store shared across all rate limiter instances in this process.
+const defaultStore = new InMemoryStore();
+
+// ── Rate limiter ────────────────────────────────────────────────────────────
+
+export interface RateLimitConfig {
+  /** Unique namespace for this limit rule (e.g. 'vault-write', 'auth-sync'). */
+  key: string;
+  /** Max requests allowed per window. */
+  limit: number;
+  /** Window size in milliseconds. */
+  windowMs: number;
+  /** Optional store override (for Redis integration). */
+  store?: RateLimitStore;
+}
+
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number; // Unix timestamp (ms) when the window resets
+}
+
+/**
+ * Check whether the given identifier (e.g. IP address) is within the rate limit.
+ * Call this at the top of any sensitive API route handler.
+ */
+export async function checkRateLimit(
+  identifier: string,
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
+  const store = config.store ?? defaultStore;
+  const storeKey = `rl:${config.key}:${identifier}`;
+  const now = Date.now();
+
+  let record = await store.get(storeKey);
+
+  if (!record || now - record.windowStart >= config.windowMs) {
+    // New window
+    record = { count: 1, windowStart: now };
+    await store.set(storeKey, record, config.windowMs);
+    return {
+      allowed: true,
+      remaining: config.limit - 1,
+      resetAt: now + config.windowMs,
+    };
+  }
+
+  record.count += 1;
+  await store.set(storeKey, record, config.windowMs - (now - record.windowStart));
+
+  const remaining = Math.max(0, config.limit - record.count);
+  return {
+    allowed: record.count <= config.limit,
+    remaining,
+    resetAt: record.windowStart + config.windowMs,
+  };
+}
+
+/**
+ * Extract the best available client IP from a Next.js request.
+ * Falls back to 'unknown' — rate limits will still apply but will share a bucket.
+ */
+export function getClientIp(request: Request): string {
+  // Vercel / common proxies
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) return realIp.trim();
+
+  return 'unknown';
+}
+
+// ── Pre-configured limits for SecureVoult endpoints ─────────────────────────
+
+export const RATE_LIMITS = {
+  /** auth/sync-user: 20 syncs per 15 min per IP */
+  authSync: { key: 'auth-sync', limit: 20, windowMs: 15 * 60 * 1000 } as RateLimitConfig,
+
+  /** vault POST: 60 writes per 15 min per IP */
+  vaultWrite: { key: 'vault-write', limit: 60, windowMs: 15 * 60 * 1000 } as RateLimitConfig,
+
+  /** vault GET: 120 reads per 15 min per IP */
+  vaultRead: { key: 'vault-read', limit: 120, windowMs: 15 * 60 * 1000 } as RateLimitConfig,
+
+  /** session list/revoke: 30 requests per 5 min per IP */
+  sessions: { key: 'sessions', limit: 30, windowMs: 5 * 60 * 1000 } as RateLimitConfig,
+
+  /** admin browse (list/search): 100 requests per 10 min per IP */
+  admin: { key: 'admin', limit: 100, windowMs: 10 * 60 * 1000 } as RateLimitConfig,
+
+  /** admin mutations (role change, disable account): 20 per 10 min per IP */
+  adminAction: { key: 'admin-action', limit: 20, windowMs: 10 * 60 * 1000 } as RateLimitConfig,
+
+  /** auth actions (login, register, passkey): 10 per minute per IP */
+  auth: { key: 'auth', limit: 10, windowMs: 60 * 1000 } as RateLimitConfig,
+
+  /** auth mutations (passkey credential management): 20 per 10 min per IP */
+  authAction: { key: 'auth-action', limit: 20, windowMs: 10 * 60 * 1000 } as RateLimitConfig,
+} as const;

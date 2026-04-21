@@ -1,0 +1,118 @@
+{
+  "name": "securevoult-desktop",
+  "version": "1.0.0",
+  "description": "SecureVoult Desktop — zero-knowledge password manager for Windows, macOS and Linux",
+  "main": "main.js",
+  "author": {
+    "name": "SecureVoult Ltd",
+    "email": "hello@securevoult.com",
+    "url": "https://securevoult.com"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start":       "electron .",
+    "dev":         "cross-env ELECTRON_ENV=development electron .",
+    "build":       "electron-builder --publish never",
+    "build:win":   "electron-builder --win   --publish never",
+    "build:mac":   "electron-builder --mac   --publish never",
+    "build:linux": "electron-builder --linux --publish never",
+    "release":     "electron-builder --publish always"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "cross-env":        "^7.0.3",
+    "electron":         "^30.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId":       "com.securevoult.desktop",
+    "productName": "SecureVoult",
+    "copyright":   "© 2025 SecureVoult Ltd",
+    "directories": {
+      "output": "dist",
+      "buildResources": "icons"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icons/**",
+      "../out/**"
+    ],
+    "extraMetadata": {
+      "main": "main.js"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64", "arm64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon":             "icons/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "signingHashAlgorithms": ["sha256"],
+      "signDlls": false
+    },
+    "nsis": {
+      "oneClick":          false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName":      "SecureVoult"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "mas", "arch": ["x64", "arm64"] }
+      ],
+      "icon":           "icons/icon.icns",
+      "category":       "public.app-category.utilities",
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "entitlements":    "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title":   "${productName} ${version}",
+      "sign":    false
+    },
+    "mas": {
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb",      "arch": ["x64", "arm64"] },
+        { "target": "rpm",      "arch": ["x64"] },
+        { "target": "snap",     "arch": ["x64"] }
+      ],
+      "icon":         "icons/icon.png",
+      "category":     "Utility",
+      "synopsis":     "Zero-knowledge password manager",
+      "description":  "SecureVoult — end-to-end encrypted password manager with breach monitoring, team vaults, and cross-platform sync.",
+      "maintainer":   "SecureVoult Ltd <hello@securevoult.com>"
+    },
+    "deb": {
+      "priority":    "optional",
+      "compression": "xz"
+    },
+    "snap": {
+      "grade":        "stable",
+      "confinement":  "strict"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner":    "securevoult",
+        "repo":     "securevoult-desktop"
+      }
+    ],
+    "protocols": [
+      {
+        "name":    "SecureVoult",
+        "schemes": ["securevoult"]
+      }
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "manifest_version": 2,
+  "name": "SecureVoult",
+  "version": "1.0.0",
+  "description": "Zero-knowledge password manager — autofill, breach monitoring, and encrypted vault sync.",
+  "author": "SecureVoult Ltd",
+  "homepage_url": "https://securevoult.com",
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "contextMenus",
+    "https://*/*",
+    "http://*/*"
+  ],
+
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "SecureVoult",
+    "default_icon": {
+      "16":  "icons/icon-16.png",
+      "32":  "icons/icon-32.png",
+      "48":  "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js":      ["content.js"],
+      "run_at":  "document_end",
+      "all_frames": true
+    }
+  ],
+
+  "web_accessible_resources": [
+    "popup.html",
+    "options.html",
+    "icons/*"
+  ],
+
+  "icons": {
+    "16":  "icons/icon-16.png",
+    "32":  "icons/icon-32.png",
+    "48":  "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+
+  "commands": {
+    "fill-password": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac":     "Command+Shift+F"
+      },
+      "description": "Fill password on current page"
+    },
+    "open-vault": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac":     "Command+Shift+P"
+      },
+      "description": "Open SecureVoult vault"
+    }
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id":              "addon@securevoult.com",
+      "strict_min_version": "109.0"
+    }
+  }
+}

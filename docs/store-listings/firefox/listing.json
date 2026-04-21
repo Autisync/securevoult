@@ -1,0 +1,39 @@
+{
+  "name": "SecureVoult",
+  "summary": "Zero-knowledge password manager with autofill and breach monitoring.",
+  "description": "SecureVoult is a zero-knowledge, AES-256 encrypted password manager with browser autofill.\n\nFEATURES\n• Autofill login credentials on any website — one click or keyboard shortcut\n• Save new login prompts appear automatically when you log in\n• Zero-knowledge encryption: your master password never leaves your device\n• AES-256 + PBKDF2 vault encryption (100,000 rounds)\n• Breach monitoring: checks passwords against HaveIBeenPwned without revealing them\n• Secure clipboard copy with configurable auto-clear timeout\n• Works with Chrome, Edge, Brave, and Opera\n\nPRIVACY\nSecureVoult cannot read your passwords. Your vault is encrypted locally before it ever reaches our servers. We use k-anonymity (HIBP range API) for breach checks — we never send your actual password hashes to any external service.\n\nPERMISSIONS EXPLAINED\n• storage: Save your encrypted vault locally\n• activeTab: Detect login forms on the current tab\n• tabs: Navigate to the vault interface when requested\n• contextMenus: Right-click \"Fill with SecureVoult\" shortcut\n• scripting: Inject autofill into login forms\n• http://*/* https://*/*: Required to detect and fill login forms across all websites\n\nSETUP\nInstall the extension, click the toolbar icon, and sign in with your SecureVoult account. Your encrypted vault syncs automatically (Pro plan required for cross-device sync).\n\nSOURCE / PRIVACY POLICY\nhttps://securevoult.com/privacy",
+  "categories": [
+    "security-privacy"
+  ],
+  "tags": [
+    "password-manager",
+    "autofill",
+    "encryption",
+    "security"
+  ],
+  "homepageUrl": "https://securevoult.com",
+  "supportUrl": "https://securevoult.com/security",
+  "privacyPolicyUrl": "https://securevoult.com/privacy",
+  "submitUrl": "https://addons.mozilla.org/developers/",
+  "uploadInstructions": [
+    "⚠️  Firefox requires Manifest Version 2 (MV2), not MV3.",
+    "   A separate manifest.json is needed. Key differences:",
+    "   - Replace \"manifest_version\": 3 → \"manifest_version\": 2",
+    "   - Replace \"action\" → \"browser_action\"",
+    "   - Replace \"background.service_worker\" → \"background.scripts\": [\"background.js\"]",
+    "   - Replace \"host_permissions\" → move into \"permissions\"",
+    "1. Create extension-package-firefox/ with the MV2 manifest",
+    "2. Zip it: Compress-Archive -Path extension-package-firefox\\* -DestinationPath securevoult-firefox.zip",
+    "3. Go to: https://addons.mozilla.org/developers/",
+    "4. Click \"Submit a New Add-on\" → upload the ZIP",
+    "5. Fill in fields from firefox/listing.json",
+    "6. Source code submission is required by Mozilla for obfuscated scripts.",
+    "7. Review takes 1–4 weeks for first submission."
+  ],
+  "notes": [
+    "Firefox review is stricter and slower than Chrome/Edge.",
+    "Mozilla requires source code if the extension is minified.",
+    "Use browser.* API (with webextension-polyfill) instead of chrome.* for MV2.",
+    "Consider using the webextension-polyfill package for cross-browser compatibility."
+  ]
+}
