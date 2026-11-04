@@ -2,10 +2,13 @@ import { VaultData, PasswordEntry } from '@/types/vault';
 import { UniversalStorageService } from './storage';
 import { AuthService, getStoredSessionId } from '@/lib/auth';
 import {
-  createVaultKey, decryptWithKey, decryptWithPassword, encryptVaultJson, headerOf,
-  parseBlob, sameKeyHeader, type VaultKey,
+  createVaultKeyWithRecovery, createRecoveryKey, decryptWithKey, decryptWithPassword, encryptVaultJson, headerOf,
+  parseBlob, recoverVaultKey, sameKeyHeader, type VaultKey,
 } from './vault-crypto';
 import { mergeVaults, reviveVault } from './vault-merge';
+import { getMfaToken, MfaRequiredError } from './mfa-client';
+
+export { MfaRequiredError };
 import { baseDomain } from './domain';
 
 export { baseDomain };
@@ -50,19 +53,27 @@ class DatabaseService {
     const token = await AuthService.getIdToken();
     if (!token) throw new OfflineError('not signed in');
     const sessionId = getStoredSessionId();
+    const mfa = await getMfaToken().catch(() => null);
+    let res: Response;
     try {
-      return await fetch(`${this.baseUrl}/api${endpoint}`, {
+      res = await fetch(`${this.baseUrl}/api${endpoint}`, {
         ...init,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
           ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
+          ...(mfa ? { 'X-MFA-Token': mfa } : {}),
           ...init.headers,
         },
       });
     } catch (e) {
       throw new OfflineError(e);
     }
+    if (res.status === 401) {
+      const body = await res.clone().json().catch(() => ({}));
+      if (body?.code === 'mfa_required') throw new MfaRequiredError();
+    }
+    return res;
   }
 
   async getVault(): Promise<ServerVault> {
@@ -201,9 +212,44 @@ export async function readLocalVault(key: VaultKey): Promise<{ vault: VaultData;
   return { vault, serverVersion: local.serverVersion };
 }
 
-export async function createVault(password: string): Promise<OpenVault> {
-  const vk = await createVaultKey(password);
-  return saveVault(VaultService.createEmptyVault(), vk, 0);
+/** A new vault, with its Recovery Kit key (shown once to the user, never stored). */
+export async function createVault(password: string): Promise<OpenVault & { recoveryKey: string }> {
+  const { vk, recoveryKey } = await createVaultKeyWithRecovery(password);
+  return { ...(await saveVault(VaultService.createEmptyVault(), vk, 0)), recoveryKey };
+}
+
+/** Makes or replaces the Recovery Kit for an open vault (needs the master password once). */
+export async function addRecoveryKit(vault: VaultData, key: VaultKey, baseVersion: number, password: string): Promise<OpenVault & { recoveryKey: string }> {
+  const { header, recoveryKey } = await createRecoveryKey(password, key.header);
+  return { ...(await saveVault(vault, { key: key.key, header }, baseVersion)), recoveryKey };
+}
+
+/**
+ * Forgot the master password: the Recovery Kit key opens the vault, a new
+ * master password locks it, and a fresh recovery key replaces the used one.
+ */
+export async function recoverVault(recoveryKey: string, newPassword: string): Promise<OpenVault & { recoveryKey: string }> {
+  let blob = '';
+  let version = 0;
+  try {
+    const server = await databaseAPI.getVault();
+    blob = server.encryptedData;
+    version = server.version;
+  } catch (e) {
+    if (!(e instanceof OfflineError)) throw e;
+    throw new Error('Recovering needs a connection to SecureVoult. Try again when you are online.');
+  }
+  if (!blob) throw new NoVaultError();
+  const header = headerOf(blob);
+  if (!header?.rk) throw new Error('This vault has no Recovery Kit yet, so it can only be opened with the master password.');
+  const { vk, recoveryKey: fresh } = await recoverVaultKey(recoveryKey, newPassword, header);
+  const vault = decode(await decryptWithKey(blob, vk));
+  return { ...(await saveVault(vault, vk, version)), recoveryKey: fresh };
+}
+
+/** Whether this vault has a Recovery Kit. */
+export function hasRecoveryKit(key: VaultKey | null): boolean {
+  return !!key?.header.rk;
 }
 
 /**
@@ -265,7 +311,10 @@ export async function vaultExists(): Promise<boolean> {
   try {
     const server = await databaseAPI.getVault();
     if (server.encryptedData) return true;
-  } catch { /* offline: fall through */ }
+  } catch (e) {
+    // Two-step sign-in is only offered once a vault exists.
+    if (e instanceof MfaRequiredError) return true;
+  }
   const local = await readLocal();
   const uid = AuthService.currentUid();
   return !!local && (local.uid === null || local.uid === uid);

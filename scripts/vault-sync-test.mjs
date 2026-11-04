@@ -48,10 +48,11 @@ await build({
 const vc = await import(pathToFileURL(resolve(out, 'vault.mjs')).href);
 
 // ── fake server ──────────────────────────────────────────────────────────────
-const server = { doc: null, down: false, puts: 0 };
+const server = { doc: null, down: false, puts: 0, mfa: false };
 globalThis.fetch = async (url, init = {}) => {
   if (server.down) throw new TypeError('fetch failed');
   const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  if (server.mfa && init.headers?.['X-MFA-Token'] !== 'proof') return json(401, { error: true, code: 'mfa_required' });
   if (init.method === 'GET') {
     return json(200, { success: true, vault: server.doc ? { encryptedData: server.doc.blob, version: server.doc.version } : { encryptedData: '', version: 0 } });
   }
@@ -76,6 +77,8 @@ const PW = 'master password 1';
 console.log('create and unlock');
 on(laptop);
 let L = await vc.createVault(PW);
+ok(/^([A-Z2-9]{4}-){7}[A-Z2-9]{4}$/.test(L.recoveryKey) && JSON.parse(server.doc.blob).rk, 'new vault comes with a Recovery Kit key');
+const firstRecoveryKey = L.recoveryKey;
 ok(server.doc?.version === 1 && L.serverVersion === 1, 'new vault lands on the server as version 1');
 ok(JSON.parse(server.doc.blob).v === 2, 'server holds format 2 ciphertext only');
 on(phone);
@@ -134,12 +137,37 @@ let oldWorks = true;
 try { on(laptop); await vc.openVault(PW); } catch { oldWorks = false; }
 ok(!oldWorks, 'phone\'s save did not bring the old master password back');
 on(laptop);
-const reopened = await vc.openVault('master password 2');
-ok(names(reopened.vault).includes('After change'), 'new master password opens everything');
+const reopenedMid = await vc.openVault('master password 2');
+ok(names(reopenedMid.vault).includes('After change'), 'new master password opens everything');
+
+console.log('forgot master password');
+on(phone);
+phone.local = null;
+const rec = await vc.recoverVault(firstRecoveryKey.toLowerCase(), 'master password 3');
+ok(names(rec.vault).includes('After change') && rec.recoveryKey !== firstRecoveryKey, 'recovery key opens the vault on a fresh device, new key issued');
+on(laptop);
+let oldPw = true; try { await vc.openVault('master password 2'); } catch { oldPw = false; }
+ok(!oldPw, 'the forgotten password no longer works anywhere');
+const viaNew = await vc.openVault('master password 3');
+ok(names(viaNew.vault) === names(rec.vault), 'new master password opens it on the other device');
+let reused = ''; try { await vc.recoverVault(firstRecoveryKey, 'x'.repeat(12)); } catch (e) { reused = e.name; }
+ok(reused === 'WrongRecoveryKeyError', 'the used recovery key is retired');
+const kit = await vc.addRecoveryKit(viaNew.vault, viaNew.key, viaNew.serverVersion, 'master password 3');
+const rec2 = await vc.recoverVault(kit.recoveryKey, 'master password 4');
+ok(!!rec2.vault, 'a replacement Recovery Kit from Settings works');
+L = await vc.openVault('master password 4');
+
+console.log('two-step sign-in');
+server.mfa = true;
+let mfaErr = ''; try { await vc.openVault('master password 4'); } catch (e) { mfaErr = e.name; }
+ok(mfaErr === 'MfaRequiredError', 'vault withheld until the authenticator code is given');
+ok(await vc.vaultExists() === true, 'sign-in still knows a vault exists (asks for the code, not a new vault)');
+server.mfa = false;
+const reopened = L;
 
 console.log('backup');
 const backup = await vc.exportBackup(reopened.vault, reopened.key);
-const restored = await vc.readBackup(backup, 'master password 2');
+const restored = await vc.readBackup(backup, 'master password 4');
 ok(restored.entries.length === reopened.vault.entries.length, 'backup restores with the master password');
 let badBackup = false;
 try { await vc.readBackup(backup, 'wrong'); } catch { badBackup = true; }

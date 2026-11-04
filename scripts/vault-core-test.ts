@@ -8,7 +8,7 @@
 import { webcrypto } from 'node:crypto';
 import {
   createVaultKey, unlockVaultKey, rewrapVaultKey, encryptVaultJson, decryptWithKey, decryptWithPassword,
-  headerOf, WrongPasswordError,
+  headerOf, WrongPasswordError, createVaultKeyWithRecovery, createRecoveryKey, recoverVaultKey, newRecoveryKey,
 } from '../src/lib/vault-crypto.ts';
 import { parseTotp, hotp, totpNow, base32Decode } from '../src/lib/totp.ts';
 import { mergeVaults } from '../src/lib/vault-merge.ts';
@@ -50,6 +50,34 @@ console.log('encryption');
   ok(iv1 !== iv2, 'fresh IV every save');
   const real = await createVaultKey('pw');
   ok(real.header.kdf.alg === 'argon2id' && (real.header.kdf as any).m === 65536 && (real.header.kdf as any).t === 3, 'default: Argon2id 64 MiB, 3 passes');
+}
+
+console.log('recovery kit');
+{
+  const { vk, recoveryKey } = await createVaultKeyWithRecovery('master one', { ...fast });
+  ok(/^([A-Z2-9]{4}-){7}[A-Z2-9]{4}$/.test(recoveryKey), 'recovery key: 8 groups of 4', recoveryKey);
+  ok(newRecoveryKey() !== newRecoveryKey(), 'every recovery key is different');
+  const blob = await encryptVaultJson('{"secret":1}', vk);
+  ok(!!JSON.parse(blob).rk && !blob.includes(recoveryKey.replace(/-/g, '')), 'blob carries the recovery wrap, not the key');
+  const typed = recoveryKey.toLowerCase().replace(/-/g, ' ');
+  const rec = await recoverVaultKey(typed, 'brand new master', headerOf(blob)!);
+  ok(await decryptWithKey(blob, rec.vk) === '{"secret":1}', 'forgot master password: recovery key opens the vault (typed in lower case, spaces)');
+  const after = await encryptVaultJson('{"secret":1}', rec.vk);
+  ok((await decryptWithPassword(after, 'brand new master')).json === '{"secret":1}', 'new master password works afterwards');
+  let oldMaster = true; try { await decryptWithPassword(after, 'master one'); } catch { oldMaster = false; }
+  ok(!oldMaster, 'old master password no longer opens it');
+  let usedKey = true; try { await recoverVaultKey(recoveryKey, 'x', headerOf(after)!); } catch { usedKey = false; }
+  ok(!usedKey && rec.recoveryKey !== recoveryKey, 'used recovery key retired, a new one issued');
+  let wrongKey = ''; try { await recoverVaultKey(newRecoveryKey(), 'x', headerOf(blob)!); } catch (e) { wrongKey = (e as Error).name; }
+  ok(wrongKey === 'WrongRecoveryKeyError', 'a wrong recovery key is refused');
+  const changed = await rewrapVaultKey('brand new master', 'third master', headerOf(after)!);
+  ok(!!changed.rk && changed.rk.wk.ct === headerOf(after)!.rk!.wk.ct, 'changing the master password keeps the Recovery Kit valid');
+  const plain = await createVaultKey('no kit yet', { ...fast });
+  const made = await createRecoveryKey('no kit yet', plain.header);
+  const rec2 = await recoverVaultKey(made.recoveryKey, 'n', made.header);
+  ok(!!rec2.vk, 'Recovery Kit added to an existing vault works');
+  let needPw = ''; try { await createRecoveryKey('wrong', plain.header); } catch (e) { needPw = (e as Error).name; }
+  ok(needPw === 'WrongPasswordError', 'making a Recovery Kit needs the right master password');
 }
 
 console.log('format 1 (older vaults)');

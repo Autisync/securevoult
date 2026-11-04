@@ -13,7 +13,7 @@ import { useVault } from '@/contexts/VaultContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useVaultPreferences } from '@/hooks/useVaultPreferences';
-import { generateRecoveryKit } from '@/lib/recovery-kit';
+import { TwoStepSettings, RecoveryKitSettings } from '@/components/AccountSecurity';
 import { parseCsv, detectSource, type CsvSource } from '@/lib/importers';
 import { CryptoService } from '@/lib/crypto';
 import {
@@ -86,18 +86,6 @@ export function Settings({ onClose }: SettingsProps) {
 
   const entryCount = vault?.entries.length ?? 0;
 
-  // ── Recovery kit ────────────────────────────────────────────────────────────
-  const handleDownloadRecoveryKit = () => {
-    const html = generateRecoveryKit({ email: user?.email, displayName: user?.displayName, entryCount });
-    const now = new Date();
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `securevoult-recovery-kit-${now.toISOString().split('T')[0]}.html`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-    toast({ title: 'Recovery kit downloaded', description: 'Open the file in a browser to print or save securely.' });
-  };
 
   // ── Export ──────────────────────────────────────────────────────────────────
   const handleExportEncrypted = async () => {
@@ -355,24 +343,19 @@ export function Settings({ onClose }: SettingsProps) {
                   Because of zero-knowledge encryption, your master password is never stored anywhere — not even on our servers. If you forget it, your vault data cannot be decrypted. Keep it in a safe, offline location.
                 </p>
               </div>
-              <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-                <div>
-                  <p className="text-sm font-medium">Recovery kit</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    A printable emergency sheet with vault recovery instructions and your encrypted vault hint.
-                    Planned for a future release.
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleDownloadRecoveryKit}>
-                  <Download className="w-3.5 h-3.5 mr-1.5" />Download recovery kit
-                </Button>
-              </div>
+              <RecoveryKitSettings />
             </div>
           </Section>
         </TabsContent>
 
         {/* Security */}
         <TabsContent value="security" className="mt-5 space-y-6">
+          <Section title="Two-step sign-in">
+            <TwoStepSettings />
+          </Section>
+          <Section title="Recovery Kit">
+            <RecoveryKitSettings />
+          </Section>
           <Section title="Auto-lock">
             <Row label="Lock after inactivity" hint={prefs.autoLockMinutes === 0 ? 'Auto-lock is disabled.' : `Locks after ${prefs.autoLockMinutes} minute${prefs.autoLockMinutes === 1 ? '' : 's'} of inactivity.`}>
               <Select value={String(prefs.autoLockMinutes)} onValueChange={v => setPref('autoLockMinutes', parseInt(v, 10))}>

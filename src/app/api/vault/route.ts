@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db-connect';
 import { Vault } from '@/lib/models';
-import { requireAuthenticatedUser } from '@/lib/server-auth';
+import { requireAuthenticatedUser, requireSecondFactor } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements, planLimitPayload } from '@/lib/entitlements';
 import { logLimitEvent } from '@/lib/limit-logger';
@@ -33,6 +33,9 @@ export async function GET(request: NextRequest) {
   const dbError = await ensureDB();
   if (dbError) return dbError;
 
+  const mfaError = await requireSecondFactor(request, authResult.user);
+  if (mfaError) return mfaError;
+
   const { uid } = authResult.user;
 
   const vault = await Vault.findOne({ userId: uid });
@@ -58,6 +61,9 @@ export async function POST(request: NextRequest) {
 
   const dbError = await ensureDB();
   if (dbError) return dbError;
+
+  const mfaError = await requireSecondFactor(request, authResult.user);
+  if (mfaError) return mfaError;
 
   const { uid } = authResult.user;
 

@@ -23,10 +23,13 @@ export type KdfParams =
 
 export interface Sealed { iv: string; ct: string }
 
-/** Everything needed to turn the master password back into the vault key. */
-export interface KeyHeader { kdf: KdfParams; wk: Sealed }
+/** The vault key wrapped a second time, with the Recovery Kit key. */
+export interface RecoveryWrap { kdf: KdfParams; wk: Sealed }
 
-export interface EncryptedVaultV2 { v: 2; kdf: KdfParams; wk: Sealed; data: Sealed }
+/** Everything needed to turn the master password (or the recovery key) back into the vault key. */
+export interface KeyHeader { kdf: KdfParams; wk: Sealed; rk?: RecoveryWrap }
+
+export interface EncryptedVaultV2 { v: 2; kdf: KdfParams; wk: Sealed; rk?: RecoveryWrap; data: Sealed }
 
 export interface VaultKey { key: CryptoKey; header: KeyHeader }
 
@@ -34,6 +37,9 @@ export interface VaultKey { key: CryptoKey; header: KeyHeader }
 export const DEFAULT_KDF = { m: 65536, t: 3, p: 1 } as const;
 
 const AAD_KEY = new TextEncoder().encode('securevoult:v2:key');
+const AAD_RECOVERY = new TextEncoder().encode('securevoult:v2:recovery');
+/** Recovery keys are long random strings, so a lighter Argon2id is enough (OWASP minimum). */
+const RECOVERY_KDF = { m: 19456, t: 2, p: 1 } as const;
 const AAD_DATA = new TextEncoder().encode('securevoult:v2:vault');
 
 const enc = new TextEncoder();
@@ -135,6 +141,16 @@ export async function createVaultKey(password: string, kdf?: KdfParams): Promise
   } finally { raw.fill(0); }
 }
 
+/** A new vault key with its Recovery Kit key made at the same time. */
+export async function createVaultKeyWithRecovery(password: string, kdf?: KdfParams): Promise<{ vk: VaultKey; recoveryKey: string }> {
+  const raw = random(32);
+  try {
+    const recoveryKey = newRecoveryKey();
+    const header: KeyHeader = { ...(await wrapRaw(password, raw, kdf)), rk: await wrapForRecovery(raw, recoveryKey) };
+    return { vk: { key: await importVaultKey(raw), header }, recoveryKey };
+  } finally { raw.fill(0); }
+}
+
 /** Unwraps the vault key. Throws WrongPasswordError when the password is wrong. */
 export async function unlockVaultKey(password: string, header: KeyHeader): Promise<VaultKey> {
   const kek = await deriveKek(password, header.kdf);
@@ -143,16 +159,77 @@ export async function unlockVaultKey(password: string, header: KeyHeader): Promi
   try { return { key: await importVaultKey(raw), header }; } finally { raw.fill(0); }
 }
 
-/** New master password, same vault key: existing ciphertext stays valid. */
+/** New master password, same vault key: existing ciphertext stays valid. The Recovery Kit keeps working. */
 export async function rewrapVaultKey(oldPassword: string, newPassword: string, header: KeyHeader): Promise<KeyHeader> {
   const kek = await deriveKek(oldPassword, header.kdf);
   let raw: Uint8Array;
   try { raw = await open(kek, header.wk, AAD_KEY); } catch { throw new WrongPasswordError(); }
-  try { return await wrapRaw(newPassword, raw); } finally { raw.fill(0); }
+  try { return { ...(await wrapRaw(newPassword, raw)), ...(header.rk ? { rk: header.rk } : {}) }; } finally { raw.fill(0); }
+}
+
+// ── Recovery Kit ───────────────────────────────────────────────────────────
+
+const RK_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I
+
+/** 32 characters from a 32-letter alphabet = 160 random bits, shown as 8 groups of 4. */
+export function newRecoveryKey(): string {
+  const bytes = random(32);
+  const chars = Array.from(bytes, (b) => RK_ALPHABET[b & 31]).join('');
+  bytes.fill(0);
+  return chars.match(/.{4}/g)!.join('-');
+}
+
+/** Accepts the key with or without dashes/spaces, any case. */
+export function normaliseRecoveryKey(input: string): string {
+  return input.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+async function wrapForRecovery(raw: Uint8Array, recoveryKey: string): Promise<RecoveryWrap> {
+  const kdf: KdfParams = { alg: 'argon2id', salt: toB64(random(16)), ...RECOVERY_KDF };
+  const kek = await deriveKek(normaliseRecoveryKey(recoveryKey), kdf);
+  return { kdf, wk: await seal(kek, raw, AAD_RECOVERY) };
+}
+
+export class WrongRecoveryKeyError extends Error {
+  constructor() { super('That recovery key does not match this vault'); this.name = 'WrongRecoveryKeyError'; }
+}
+
+/**
+ * Makes (or replaces) the Recovery Kit key. Needs the master password once,
+ * because the vault key itself is never kept in a readable form.
+ */
+export async function createRecoveryKey(password: string, header: KeyHeader): Promise<{ header: KeyHeader; recoveryKey: string }> {
+  const kek = await deriveKek(password, header.kdf);
+  let raw: Uint8Array;
+  try { raw = await open(kek, header.wk, AAD_KEY); } catch { throw new WrongPasswordError(); }
+  try {
+    const recoveryKey = newRecoveryKey();
+    return { header: { kdf: header.kdf, wk: header.wk, rk: await wrapForRecovery(raw, recoveryKey) }, recoveryKey };
+  } finally { raw.fill(0); }
+}
+
+/**
+ * Forgot the master password: opens the vault key with the recovery key, locks
+ * it with a new master password, and issues a fresh recovery key (the old one
+ * has been typed somewhere and is retired).
+ */
+export async function recoverVaultKey(recoveryKey: string, newPassword: string, header: KeyHeader): Promise<{ vk: VaultKey; recoveryKey: string }> {
+  if (!header.rk) throw new Error('This vault has no Recovery Kit');
+  const kek = await deriveKek(normaliseRecoveryKey(recoveryKey), header.rk.kdf);
+  let raw: Uint8Array;
+  try { raw = await open(kek, header.rk.wk, AAD_RECOVERY); } catch { throw new WrongRecoveryKeyError(); }
+  try {
+    const fresh = newRecoveryKey();
+    const next: KeyHeader = { ...(await wrapRaw(newPassword, raw)), rk: await wrapForRecovery(raw, fresh) };
+    return { vk: { key: await importVaultKey(raw), header: next }, recoveryKey: fresh };
+  } finally { raw.fill(0); }
 }
 
 export async function encryptVaultJson(json: string, vk: VaultKey): Promise<string> {
-  const blob: EncryptedVaultV2 = { v: 2, kdf: vk.header.kdf, wk: vk.header.wk, data: await seal(vk.key, enc.encode(json), AAD_DATA) };
+  const blob: EncryptedVaultV2 = {
+    v: 2, kdf: vk.header.kdf, wk: vk.header.wk, ...(vk.header.rk ? { rk: vk.header.rk } : {}),
+    data: await seal(vk.key, enc.encode(json), AAD_DATA),
+  };
   return JSON.stringify(blob);
 }
 
@@ -167,7 +244,7 @@ export function parseBlob(blob: string | object): { v: 1; data: string; salt: st
 
 export function headerOf(blob: string | object): KeyHeader | null {
   const p = parseBlob(blob);
-  return p.v === 2 ? { kdf: p.kdf, wk: p.wk } : null;
+  return p.v === 2 ? { kdf: p.kdf, wk: p.wk, ...(p.rk ? { rk: p.rk } : {}) } : null;
 }
 
 /**
@@ -177,7 +254,7 @@ export function headerOf(blob: string | object): KeyHeader | null {
 export async function decryptWithPassword(blob: string | object, password: string): Promise<{ json: string; vk: VaultKey; upgraded: boolean }> {
   const p = parseBlob(blob);
   if (p.v === 2) {
-    const vk = await unlockVaultKey(password, { kdf: p.kdf, wk: p.wk });
+    const vk = await unlockVaultKey(password, { kdf: p.kdf, wk: p.wk, ...(p.rk ? { rk: p.rk } : {}) });
     return { json: dec.decode(await open(vk.key, p.data, AAD_DATA)), vk, upgraded: false };
   }
   // Format 1: the AES key was derived straight from the password.
@@ -198,5 +275,5 @@ export async function decryptWithKey(blob: string | object, vk: VaultKey): Promi
 
 /** True when the blob's key header differs from ours (master password changed elsewhere). */
 export function sameKeyHeader(a: KeyHeader, b: KeyHeader | null): boolean {
-  return !!b && a.wk.ct === b.wk.ct && a.kdf.salt === b.kdf.salt;
+  return !!b && a.wk.ct === b.wk.ct && a.kdf.salt === b.kdf.salt && a.rk?.wk.ct === b.rk?.wk.ct;
 }

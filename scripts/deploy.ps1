@@ -16,6 +16,13 @@ $Compose = 'docker compose -f docker-compose.yml -f docker-compose.traefik.yml -
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
 Write-Host '1/3  Production settings'
+# A server-only secret (encrypts 2FA keys, signs 2FA proofs). Made once, kept in .env.local.
+if (-not (Select-String -Path .env.local -Pattern '^SECUREVOULT_SERVER_SECRET=.{32,}' -Quiet)) {
+  $bytes = New-Object byte[] 48
+  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  Add-Content .env.local ("SECUREVOULT_SERVER_SECRET=" + [Convert]::ToBase64String($bytes))
+  Write-Host '     made SECUREVOULT_SERVER_SECRET (kept in .env.local; back it up with your other secrets)'
+}
 (Get-Content .env.local) `
   -replace '^NEXT_PUBLIC_APP_URL=.*', 'NEXT_PUBLIC_APP_URL=https://vault.autisync.com' `
   -replace '^MONGODB_URI=.*', 'MONGODB_URI=' `

@@ -9,6 +9,7 @@ import { useClipboard } from '@/hooks/useClipboard';
 import { AutoFillService } from '@/lib/extension';
 import { baseDomain } from '@/lib/domain';
 import { parseTotp, totpNow } from '@/lib/totp';
+import { SecondFactorStep } from '@/components/SecondFactorStep';
 import { PasswordEntry } from '@/types/vault';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -46,7 +47,7 @@ export function ExtensionPopup() {
   const [vaultMode, setVaultMode] = useState<'unlock' | 'create'>('unlock');
 
   const { copied, copy: clipboardCopy } = useClipboard();
-  const { isUnlocked, vault, error: vaultError, isLoading: vaultLoading, findEntriesForCurrentDomain, getFilteredEntries, lockVault, addEntry, unlockVault, createVault } = useVault();
+  const { secondFactor, newRecoveryKey, dismissRecoveryKey, isUnlocked, vault, error: vaultError, isLoading: vaultLoading, findEntriesForCurrentDomain, getFilteredEntries, lockVault, addEntry, unlockVault, createVault } = useVault();
   const { isAuthenticated, isLoading: authLoading, user, signIn, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -259,6 +260,20 @@ export function ExtensionPopup() {
     );
   }
 
+  if (isUnlocked && newRecoveryKey) {
+    return (
+      <div className="w-[360px] bg-[hsl(222_47%_5%)] text-foreground flex flex-col gap-3 p-5 animate-in fade-in duration-300">
+        <p className="text-sm font-semibold">Save your recovery key</p>
+        <p className="text-xs text-muted-foreground">If you forget your master password, this is the only way back in. It is shown once.</p>
+        <div className="grid grid-cols-4 gap-1.5">
+          {newRecoveryKey.split('-').map((g, i) => <span key={i} className="font-mono font-bold text-xs text-center py-1.5 rounded bg-secondary/70 select-all">{g}</span>)}
+        </div>
+        <p className="text-[11px] text-muted-foreground">Write it down now. For a printable kit, make a new one any time in the web app: Settings → Security.</p>
+        <button onClick={dismissRecoveryKey} className={btnPrimary}>I&apos;ve saved it</button>
+      </div>
+    );
+  }
+
   if (!isUnlocked) {
     return (
       <div className="w-[360px] bg-[hsl(222_47%_5%)] text-foreground flex flex-col">
@@ -269,7 +284,11 @@ export function ExtensionPopup() {
           </div>
           <button onClick={() => signOut()} className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">Switch account</button>
         </div>
-        {vaultMode === 'create' ? (
+        {secondFactor === 'required' ? (
+          <div className="px-5 pt-6 pb-6 animate-in fade-in slide-in-from-bottom-1 duration-300">
+            <SecondFactorStep compact />
+          </div>
+        ) : vaultMode === 'create' ? (
           <div className="flex flex-col items-center px-5 pt-7 pb-7">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center mb-4">
               <ShieldCheck className="w-7 h-7 text-emerald-400" />

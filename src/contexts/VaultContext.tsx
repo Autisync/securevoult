@@ -5,8 +5,10 @@ import { VaultData, PasswordEntry, SortBy } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   VaultService, NoVaultError, openVault, createVault as createNewVault, saveVault, pullVault,
-  vaultExists, exportBackup, readBackup, openWithKey, type NewEntry,
+  vaultExists, exportBackup, readBackup, openWithKey, addRecoveryKit, recoverVault as recoverWithKit,
+  MfaRequiredError, type NewEntry,
 } from '@/lib/vault';
+import { mfaApi, setMfaToken } from '@/lib/mfa-client';
 import { rewrapVaultKey, exportRawKey, importRawKey, type KeyHeader, type VaultKey } from '@/lib/vault-crypto';
 import { getVaultPreference } from '@/hooks/useVaultPreferences';
 import { mergeVaults } from '@/lib/vault-merge';
@@ -27,6 +29,12 @@ interface VaultState {
   lastSynced: Date | null;
   /** Kept for older screens; conflicts are merged automatically now. */
   vaultConflict: { serverVersion: number } | null;
+  /** Two-step sign-in: 'required' until the authenticator code is entered for this sign-in. */
+  secondFactor: 'unknown' | 'required' | 'ok';
+  /** A Recovery Kit key just made: shown once, then forgotten. */
+  newRecoveryKey: string | null;
+  /** Whether the open vault has a Recovery Kit. */
+  hasRecoveryKit: boolean;
 }
 
 type VaultAction =
@@ -38,7 +46,9 @@ type VaultAction =
   | { type: 'SET_SEARCH_QUERY'; payload: string }
   | { type: 'SET_SELECTED_CATEGORY'; payload: string }
   | { type: 'SET_SORT_BY'; payload: SortBy }
-  | { type: 'SET_SYNC_STATUS'; payload: { status: SyncStatus; lastSynced?: Date } };
+  | { type: 'SET_SYNC_STATUS'; payload: { status: SyncStatus; lastSynced?: Date } }
+  | { type: 'SET_2FA'; payload: VaultState['secondFactor'] }
+  | { type: 'SET_RECOVERY'; payload: { key?: string | null; has?: boolean } };
 
 const initialState: VaultState = {
   isUnlocked: false,
@@ -51,6 +61,9 @@ const initialState: VaultState = {
   syncStatus: 'synced',
   lastSynced: null,
   vaultConflict: null,
+  secondFactor: 'unknown',
+  newRecoveryKey: null,
+  hasRecoveryKit: false,
 };
 
 function vaultReducer(state: VaultState, action: VaultAction): VaultState {
@@ -58,12 +71,18 @@ function vaultReducer(state: VaultState, action: VaultAction): VaultState {
     case 'SET_LOADING': return { ...state, isLoading: action.payload };
     case 'SET_ERROR': return { ...state, error: action.payload };
     case 'UNLOCK_VAULT': return { ...state, isUnlocked: true, vault: action.payload.vault, error: null };
-    case 'LOCK_VAULT': return { ...initialState };
+    case 'LOCK_VAULT': return { ...initialState, secondFactor: state.secondFactor };
     case 'UPDATE_VAULT': return { ...state, vault: action.payload };
     case 'SET_SEARCH_QUERY': return { ...state, searchQuery: action.payload };
     case 'SET_SELECTED_CATEGORY': return { ...state, selectedCategory: action.payload };
     case 'SET_SORT_BY': return { ...state, sortBy: action.payload };
     case 'SET_SYNC_STATUS': return { ...state, syncStatus: action.payload.status, lastSynced: action.payload.lastSynced ?? state.lastSynced };
+    case 'SET_2FA': return { ...state, secondFactor: action.payload };
+    case 'SET_RECOVERY': return {
+      ...state,
+      ...(action.payload.key !== undefined ? { newRecoveryKey: action.payload.key } : {}),
+      ...(action.payload.has !== undefined ? { hasRecoveryKit: action.payload.has } : {}),
+    };
     default: return state;
   }
 }
@@ -96,6 +115,16 @@ interface VaultContextType extends VaultState {
   findEntriesForCurrentDomain: () => Promise<PasswordEntry[]>;
   vaultConflict: { serverVersion: number } | null;
   dismissConflict: () => void;
+  /** Sends the authenticator (or backup) code for this sign-in. */
+  verifySecondFactor: (code: string) => Promise<void>;
+  /** Re-reads whether this account has two-step sign-in on (after turning it on/off). */
+  refreshSecondFactor: () => Promise<void>;
+  /** Makes or replaces the Recovery Kit; the new key appears in newRecoveryKey. */
+  createRecoveryKit: (masterPassword: string) => Promise<void>;
+  /** Forgot the master password: recovery key + new master password. */
+  recoverVault: (recoveryKey: string, newMasterPassword: string) => Promise<void>;
+  /** The user has saved the key shown in newRecoveryKey. */
+  dismissRecoveryKey: () => void;
 }
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -143,11 +172,33 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
   };
 
   const adopt = (opened: { vault: VaultData; key: VaultKey; serverVersion: number; offline: boolean }) => {
-    const headerChanged = keyRef.current?.header.wk.ct !== opened.key.header.wk.ct;
+    const headerChanged = keyRef.current?.header.wk.ct !== opened.key.header.wk.ct || keyRef.current?.header.rk?.wk.ct !== opened.key.header.rk?.wk.ct;
+    dispatch({ type: 'SET_RECOVERY', payload: { has: !!opened.key.header.rk } });
     keyRef.current = opened.key;
     versionRef.current = opened.serverVersion;
     if (headerChanged) remember(opened.key);
     dispatch({ type: 'SET_SYNC_STATUS', payload: opened.offline ? { status: 'offline' } : { status: 'synced', lastSynced: new Date() } });
+  };
+
+  // Two-step sign-in: find out once per sign-in whether a code is still needed.
+  const refreshSecondFactor = useCallback(async () => {
+    try {
+      const s = await mfaApi.status();
+      dispatch({ type: 'SET_2FA', payload: s.enabled && !s.verified ? 'required' : 'ok' });
+    } catch {
+      dispatch({ type: 'SET_2FA', payload: 'ok' }); // the vault request itself will ask if needed
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) void refreshSecondFactor();
+    else { dispatch({ type: 'SET_2FA', payload: 'unknown' }); void setMfaToken(null); }
+  }, [isAuthenticated, refreshSecondFactor]);
+
+  const verifySecondFactor = async (code: string) => {
+    await mfaApi.verify(code);
+    dispatch({ type: 'SET_2FA', payload: 'ok' });
+    dispatch({ type: 'SET_ERROR', payload: null });
   };
 
   // Extension: pick up the key kept from the last unlock instead of asking again.
@@ -183,6 +234,11 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
       vaultRef.current = opened.vault;
       dispatch({ type: 'UNLOCK_VAULT', payload: { vault: opened.vault } });
     } catch (error) {
+      if (error instanceof MfaRequiredError) {
+        dispatch({ type: 'SET_2FA', payload: 'required' });
+        dispatch({ type: 'SET_ERROR', payload: null });
+        return;
+      }
       const msg = error instanceof NoVaultError ? error.message
         : error instanceof Error && error.name === 'WrongPasswordError' ? 'That master password is not right'
         : error instanceof Error ? error.message : 'Failed to unlock vault';
@@ -201,6 +257,7 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
       keyRef.current = null;
       adopt(opened);
       vaultRef.current = opened.vault;
+      dispatch({ type: 'SET_RECOVERY', payload: { key: opened.recoveryKey } });
       dispatch({ type: 'UNLOCK_VAULT', payload: { vault: opened.vault } });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create vault' });
@@ -210,6 +267,34 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
   };
 
   const lockVault = () => { forget(); void session?.clear().catch(() => {}); dispatch({ type: 'LOCK_VAULT' }); };
+
+  const createRecoveryKit = async (masterPassword: string) => {
+    if (!vaultRef.current || !keyRef.current) throw new Error('Unlock the vault first');
+    await queueRef.current.catch(() => {});
+    const made = await addRecoveryKit(vaultRef.current, keyRef.current, versionRef.current, masterPassword);
+    adopt(made);
+    vaultRef.current = made.vault;
+    dispatch({ type: 'SET_RECOVERY', payload: { key: made.recoveryKey, has: true } });
+  };
+
+  const recoverVault = async (recoveryKey: string, newMasterPassword: string) => {
+    if (!isAuthenticated) throw new Error('Please sign in first');
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
+    try {
+      const opened = await recoverWithKit(recoveryKey, newMasterPassword);
+      keyRef.current = null;
+      adopt(opened);
+      vaultRef.current = opened.vault;
+      dispatch({ type: 'SET_RECOVERY', payload: { key: opened.recoveryKey, has: true } });
+      dispatch({ type: 'UNLOCK_VAULT', payload: { vault: opened.vault } });
+    } catch (error) {
+      if (error instanceof MfaRequiredError) { dispatch({ type: 'SET_2FA', payload: 'required' }); throw error; }
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
 
   /** Uploads the latest copy. Saves run one at a time; edits made meanwhile ride along on the next one. */
   const flush = useCallback((): Promise<void> => {
@@ -369,6 +454,8 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
     setSortBy: (s) => dispatch({ type: 'SET_SORT_BY', payload: s }),
     getFilteredEntries, getCategories, exportVault, exportVaultCSV, importVault, importFromCSV,
     changeMasterPassword, refresh, hasVault, findEntriesForCurrentDomain,
+    verifySecondFactor, refreshSecondFactor, createRecoveryKit, recoverVault,
+    dismissRecoveryKey: () => dispatch({ type: 'SET_RECOVERY', payload: { key: null } }),
     vaultConflict: null,
     dismissConflict: () => {},
   };

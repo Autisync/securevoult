@@ -52,6 +52,18 @@ const userSchema = new mongoose.Schema(
     planExpiresAt: { type: Date, default: null },
     /** Stripe customer ID — populated after first successful checkout. */
     stripeCustomerId: { type: String, default: null, index: true },
+    /**
+     * Two-step sign-in (authenticator app). Secrets are encrypted with the
+     * server secret; backup codes are stored as keyed hashes only.
+     */
+    mfa: {
+      enabled: { type: Boolean, default: false },
+      secretEnc: { type: String, default: null },
+      pendingSecretEnc: { type: String, default: null },
+      lastStep: { type: Number, default: null },
+      backupCodes: { type: [String], default: [] },
+      enabledAt: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );

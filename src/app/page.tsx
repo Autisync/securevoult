@@ -13,12 +13,13 @@ import { Toaster } from '@/components/ui/toaster';
 import { AdminPanel } from '@/components/AdminPanel';
 import { Button } from '@/components/ui/button';
 import { AuthService } from '@/lib/auth';
+import { RecoveryKitDialog } from '@/components/RecoveryKitDialog';
 
 type AppView = 'landing' | 'auth' | 'setup' | 'unlock' | 'vault' | 'admin' | 'landing_preview';
 
 function Home() {
   const { user, isLoading } = useAuth();
-  const { hasVault } = useVault();
+  const { hasVault, isUnlocked } = useVault();
   const [currentView, setCurrentView] = useState<AppView>('landing');
   const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -102,7 +103,7 @@ function Home() {
   }
 
   // Vault view
-  if (currentView === 'vault' && isVaultUnlocked) {
+  if (isUnlocked && (currentView === 'vault' || currentView === 'unlock' || currentView === 'setup')) {
     return (
       <VaultInterface
         onViewPublicSite={() => setCurrentView('landing_preview')}
@@ -132,6 +133,7 @@ export default function Page() {
       <AuthProvider>
         <VaultProvider>
           <Home />
+          <RecoveryKitDialog />
           <Toaster />
         </VaultProvider>
       </AuthProvider>

@@ -15,6 +15,8 @@ export interface AuthenticatedUser {
   emailVerified: boolean;
   /** Session ID from X-Session-Id header, if present and not revoked. */
   sessionId?: string;
+  /** When this Firebase sign-in happened (seconds). Ties the 2FA proof to it. */
+  authTime?: number;
 }
 
 /**
@@ -92,8 +94,28 @@ export async function requireAuthenticatedUser(
       picture: decoded.picture,
       emailVerified: decoded.email_verified ?? false,
       sessionId,
+      authTime: typeof decoded.auth_time === 'number' ? decoded.auth_time : undefined,
     },
   };
+}
+
+/**
+ * For routes that hand out or change the vault: when the account has
+ * two-step sign-in on, the request must carry the proof from /api/auth/2fa/verify
+ * for this sign-in. Returns a 401 { code: 'mfa_required' } response otherwise.
+ */
+export async function requireSecondFactor(request: NextRequest, user: AuthenticatedUser): Promise<NextResponse | null> {
+  const { default: connectDB } = await import('@/lib/db-connect');
+  const { User } = await import('@/lib/models');
+  const { checkMfaToken } = await import('@/lib/mfa');
+  await connectDB();
+  const doc = await User.findOne({ firebaseUid: user.uid }).select('mfa.enabled').lean() as { mfa?: { enabled?: boolean } } | null;
+  if (!doc?.mfa?.enabled) return null;
+  if (checkMfaToken(request.headers.get('x-mfa-token'), user.uid, user.authTime)) return null;
+  return NextResponse.json(
+    { error: true, code: 'mfa_required', message: 'Enter the code from your authenticator app.' },
+    { status: 401 },
+  );
 }
 
 /**
