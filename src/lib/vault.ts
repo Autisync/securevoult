@@ -387,7 +387,7 @@ export class VaultService {
     const q = query.trim().toLowerCase();
     if (!q) return vault.entries;
     return vault.entries.filter((e) =>
-      [e.website, e.username, e.category, e.notes, e.url, ...(e.urls ?? []), e.card?.holder, e.identity?.fullName, e.identity?.email, ...(e.tags ?? [])]
+      [e.website, e.username, e.category, e.notes, e.url, ...(e.urls ?? []), e.card?.holder, e.identity?.fullName, e.identity?.email, e.bank?.bankName, e.bank?.accountName, ...(e.tags ?? [])]
         .some((v) => v?.toLowerCase().includes(q)),
     );
   }

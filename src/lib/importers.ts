@@ -139,7 +139,7 @@ function generic(r: Row, cols: { name: string; url: string; username: string; pa
   const password = r[cols.password] ?? '';
   if (!name && !username && !password) return null;
   const t = (r[cols.type] ?? '').toLowerCase();
-  const type: VaultItemType = (['login', 'note', 'card', 'identity', 'wifi'] as const).find((x) => x === t) ?? 'login';
+  const type: VaultItemType = (['login', 'note', 'card', 'identity', 'wifi', 'bank'] as const).find((x) => x === t) ?? 'login';
   return { ...base(name, type), url, username, password, notes: r[cols.notes] || undefined, category: r[cols.category] || 'Imported', ...(r[cols.totp] ? { totp: r[cols.totp] } : {}) };
 }
 

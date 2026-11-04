@@ -1,4 +1,4 @@
-export type VaultItemType = 'login' | 'note' | 'card' | 'identity' | 'wifi';
+export type VaultItemType = 'login' | 'note' | 'card' | 'identity' | 'wifi' | 'bank';
 
 export interface CustomField {
   label: string;
@@ -33,6 +33,19 @@ export interface IdentityDetails {
   documentNumber?: string;
 }
 
+export interface BankDetails {
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+  /** UK sort code, e.g. 12-34-56 */
+  sortCode?: string;
+  iban?: string;
+  swift?: string;
+  /** Online banking or phone-banking PIN */
+  pin?: string;
+  branch?: string;
+}
+
 export interface WifiDetails {
   ssid?: string;
   security?: string;
@@ -53,6 +66,7 @@ export interface PasswordEntry {
   notes?: string;
   card?: CardDetails;
   identity?: IdentityDetails;
+  bank?: BankDetails;
   wifi?: WifiDetails;
   fields?: CustomField[];
   /** Previous passwords, newest first (kept 10). */

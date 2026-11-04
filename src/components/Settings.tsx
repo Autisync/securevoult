@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useVaultPreferences } from '@/hooks/useVaultPreferences';
 import { TwoStepSettings, RecoveryKitSettings } from '@/components/AccountSecurity';
+import { forgetDevice } from '@/lib/device-session';
 import { parseCsv, detectSource, type CsvSource } from '@/lib/importers';
 import { CryptoService } from '@/lib/crypto';
 import {
@@ -355,6 +356,31 @@ export function Settings({ onClose }: SettingsProps) {
           </Section>
           <Section title="Recovery Kit">
             <RecoveryKitSettings />
+          </Section>
+          <Section title="This device">
+            <Row label="Keep me unlocked on this device" hint={prefs.rememberDays > 0
+              ? `Reloading or reopening SecureVoult here won't ask for the master password for ${prefs.rememberDays} day${prefs.rememberDays === 1 ? '' : 's'}. Lock now or sign out to end it. Use only on your own computer.`
+              : 'Off: the master password is asked every time the app is opened.'}>
+              <Select value={String(prefs.rememberDays)} onValueChange={v => {
+                const days = parseInt(v, 10);
+                setPref('rememberDays', days);
+                if (days > 0) {
+                  setPref('autoLockMinutes', 0);
+                  toast({ title: 'Kept unlocked on this device', description: 'Starts from your next unlock. Auto-lock is now off; change it below if you like.' });
+                } else {
+                  void forgetDevice();
+                  toast({ title: 'This device will ask for the master password again' });
+                }
+              }}>
+                <SelectTrigger className="w-36 h-9 bg-secondary/50"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Off</SelectItem>
+                  <SelectItem value="1">1 day</SelectItem>
+                  <SelectItem value="7">7 days</SelectItem>
+                  <SelectItem value="30">30 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </Row>
           </Section>
           <Section title="Auto-lock">
             <Row label="Lock after inactivity" hint={prefs.autoLockMinutes === 0 ? 'Auto-lock is disabled.' : `Locks after ${prefs.autoLockMinutes} minute${prefs.autoLockMinutes === 1 ? '' : 's'} of inactivity.`}>

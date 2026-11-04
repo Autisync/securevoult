@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 export type Theme = 'dark' | 'light' | 'system';
 export type DefaultSort = 'updated' | 'alpha' | 'newest' | 'weakest';
-export type DefaultEntryType = 'login' | 'note' | 'card' | 'identity' | 'wifi';
+export type DefaultEntryType = 'login' | 'note' | 'card' | 'identity' | 'wifi' | 'bank';
 
 export interface VaultPreferences {
   autoLockMinutes: number;
@@ -17,6 +17,8 @@ export interface VaultPreferences {
   theme: Theme;
   defaultSort: DefaultSort;
   defaultEntryType: DefaultEntryType;
+  /** Stay unlocked on this device across reloads for this many days (0 = off). */
+  rememberDays: number;
 }
 
 const DEFAULTS: VaultPreferences = {
@@ -30,6 +32,7 @@ const DEFAULTS: VaultPreferences = {
   theme: 'dark',
   defaultSort: 'updated',
   defaultEntryType: 'login',
+  rememberDays: 0,
 };
 
 const KEYS: Record<keyof VaultPreferences, string> = {
@@ -43,6 +46,7 @@ const KEYS: Record<keyof VaultPreferences, string> = {
   theme:                   'sv_theme',
   defaultSort:             'sv_default_sort',
   defaultEntryType:        'sv_default_type',
+  rememberDays:            'sv_remember_days',
 };
 
 function readPref<K extends keyof VaultPreferences>(key: K): VaultPreferences[K] {

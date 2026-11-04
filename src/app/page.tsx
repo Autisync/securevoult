@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { getVaultPreference } from '@/hooks/useVaultPreferences';
+import { deviceSession, enableRememberIfChosen } from '@/lib/device-session';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { VaultProvider, useVault } from '@/contexts/VaultContext';
 import { AuthForm } from '@/components/AuthForm';
@@ -128,10 +130,17 @@ function Home() {
 }
 
 export default function Page() {
+  // "Keep me unlocked on this device" (Settings → Security). Read once per page load.
+  const session = useMemo(() => {
+    if (typeof window === 'undefined') return undefined;
+    const days = getVaultPreference('rememberDays');
+    enableRememberIfChosen(days);
+    return days > 0 ? deviceSession(days, () => AuthService.currentUid()) : undefined;
+  }, []);
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <AuthProvider>
-        <VaultProvider>
+        <VaultProvider session={session}>
           <Home />
           <RecoveryKitDialog />
           <Toaster />

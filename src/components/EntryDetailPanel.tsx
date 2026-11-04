@@ -14,7 +14,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import {
   X, Copy, Check, Eye, EyeOff, Edit, Trash2, ExternalLink, Star,
   Key, StickyNote, CreditCard, UserCircle, Wifi, Globe, Calendar,
-  RefreshCw, Tag, Shield, AlertTriangle
+  RefreshCw, Tag, Shield, AlertTriangle, Landmark
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -28,6 +28,7 @@ const TYPE_META: Record<VaultItemType, { icon: React.ElementType; label: string;
   card:     { icon: CreditCard, label: 'Payment card', color: 'text-green-400',  bg: 'bg-green-500/10' },
   identity: { icon: UserCircle, label: 'Identity',     color: 'text-orange-400', bg: 'bg-orange-500/10' },
   wifi:     { icon: Wifi,       label: 'Wi-Fi',        color: 'text-cyan-400',   bg: 'bg-cyan-500/10' },
+  bank:     { icon: Landmark,   label: 'Bank account', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
 };
 
 const GRADIENTS = [
@@ -67,8 +68,9 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
   // Older cards kept the name and number in the username/password slots.
   const card = type === 'card' ? (entry.card ?? { holder: entry.username || undefined, number: entry.password || undefined }) : undefined;
   const identity = type === 'identity' ? (entry.identity ?? { fullName: entry.username || undefined }) : undefined;
-  const plainUser = type === 'card' || type === 'identity' ? '' : entry.username;
-  const plainPassword = type === 'card' ? '' : entry.password;
+  const plainUser = type === 'card' || type === 'identity' || type === 'bank' ? '' : entry.username;
+  const plainPassword = type === 'card' || type === 'bank' ? '' : entry.password;
+  const bank = type === 'bank' ? (entry.bank ?? {}) : undefined;
   const groupCard = (n?: string) => (n ?? '').replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
 
   const faviconUrl = (() => {
@@ -230,6 +232,24 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
                 {card.pin && <Field label="PIN" value={card.pin} secret revealed={!!revealed.pin} onReveal={() => toggle('pin')} copyLabel="PIN" />}
                 {card.postcode && <Field label="Postcode" value={card.postcode} copyLabel="Postcode" />}
               </div>
+            </>
+          )}
+
+          {/* Bank account */}
+          {bank && (
+            <>
+              {bank.bankName && <Field label="Bank" value={bank.bankName} copyLabel="Bank" />}
+              {bank.accountName && <Field label="Account name" value={bank.accountName} copyLabel="Account name" />}
+              <div className="grid grid-cols-2 gap-2">
+                {bank.sortCode && <Field label="Sort code" value={bank.sortCode} copyLabel="Sort code" />}
+                {bank.accountNumber && <Field label="Account number" value={bank.accountNumber} secret revealed={!!revealed.acc} onReveal={() => toggle('acc')} copyLabel="Account number" />}
+              </div>
+              {bank.iban && <Field label="IBAN" value={revealed.iban ? bank.iban.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim() : bank.iban} secret revealed={!!revealed.iban} onReveal={() => toggle('iban')} copyLabel="IBAN" />}
+              <div className="grid grid-cols-2 gap-2">
+                {bank.swift && <Field label="SWIFT / BIC" value={bank.swift} copyLabel="SWIFT" />}
+                {bank.pin && <Field label="PIN" value={bank.pin} secret revealed={!!revealed.bpin} onReveal={() => toggle('bpin')} copyLabel="PIN" />}
+              </div>
+              {bank.branch && <Field label="Branch" value={bank.branch} copyLabel="Branch" />}
             </>
           )}
 

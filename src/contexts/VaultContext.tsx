@@ -203,7 +203,8 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
 
   // Extension: pick up the key kept from the last unlock instead of asking again.
   useEffect(() => {
-    if (!session || !isAuthenticated || state.isUnlocked || resumeTried.current) return;
+    // Waits for the two-step check, so a kept key never skips the authenticator code.
+    if (!session || !isAuthenticated || state.isUnlocked || resumeTried.current || state.secondFactor !== 'ok') return;
     resumeTried.current = true;
     (async () => {
       dispatch({ type: 'SET_LOADING', payload: true });
@@ -215,13 +216,14 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
         adopt(opened);
         vaultRef.current = opened.vault;
         dispatch({ type: 'UNLOCK_VAULT', payload: { vault: opened.vault } });
-      } catch {
-        await session.clear().catch(() => {});
+      } catch (e) {
+        if (e instanceof MfaRequiredError) { resumeTried.current = false; dispatch({ type: 'SET_2FA', payload: 'required' }); }
+        else await session.clear().catch(() => {});
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     })();
-  }, [session, isAuthenticated, state.isUnlocked]);
+  }, [session, isAuthenticated, state.isUnlocked, state.secondFactor]);
 
   const unlockVault = async (masterPassword: string) => {
     if (!isAuthenticated) throw new Error('Please sign in first');

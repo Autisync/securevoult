@@ -31,7 +31,7 @@ import {
   ChevronRight, Settings2, Shield, Key, StickyNote, CreditCard, Wifi,
   ArrowUpDown, Tag, UserCircle, CheckSquare, Square, Trash2, Heart,
   FolderOpen, WifiOff, RefreshCw, CloudOff, CheckCircle2, History,
-  Globe, LayoutDashboard,
+  Globe, LayoutDashboard, Landmark,
 } from 'lucide-react';
 
 type SidebarView = 'all' | 'favorites' | 'category' | 'recent' | 'used' | 'generator' | 'security' | 'settings';
@@ -44,7 +44,7 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
 ];
 
 const ITEM_TYPE_ICONS: Record<string, React.ElementType> = {
-  login: Key, note: StickyNote, card: CreditCard, identity: UserCircle, wifi: Wifi,
+  login: Key, note: StickyNote, card: CreditCard, identity: UserCircle, wifi: Wifi, bank: Landmark,
 };
 
 const TYPE_FILTERS: { value: VaultItemType | 'all'; label: string; icon: React.ElementType }[] = [
@@ -52,6 +52,7 @@ const TYPE_FILTERS: { value: VaultItemType | 'all'; label: string; icon: React.E
   { value: 'login',    label: 'Logins',   icon: Key },
   { value: 'note',     label: 'Notes',    icon: StickyNote },
   { value: 'card',     label: 'Cards',    icon: CreditCard },
+  { value: 'bank',     label: 'Bank',     icon: Landmark },
   { value: 'identity', label: 'Identity', icon: UserCircle },
   { value: 'wifi',     label: 'Wi-Fi',    icon: Wifi },
 ];
@@ -242,6 +243,21 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
     }
     return entries;
   })();
+
+  // Big vaults: draw the first rows now and the rest as you scroll, so 600+
+  // items stay smooth. The list resets to the top chunk when the view changes.
+  const CHUNK = 60;
+  const [renderLimit, setRenderLimit] = useState(CHUNK);
+  const listKey = `${sidebarView}|${typeFilter}|${searchQuery}|${activeCategory ?? ''}`;
+  useEffect(() => { setRenderLimit(CHUNK); }, [listKey]);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) setRenderLimit((n) => n + CHUNK * 2); }, { rootMargin: '800px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [renderLimit, displayedEntries.length]);
 
   const recentlyUpdated = useMemo(() =>
     [...allEntries]
@@ -672,8 +688,9 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
 
                 {displayedEntries.length > 0 ? (
                   <div className={prefs.compactView ? 'space-y-0.5' : 'space-y-1.5'}>
-                    {displayedEntries.map(entry => (
-                      <div key={entry.id} className="relative" onClick={() => handleDetailClick(entry)}>
+                    {displayedEntries.slice(0, renderLimit).map(entry => (
+                      <div key={entry.id} className="relative" onClick={() => handleDetailClick(entry)}
+                        style={{ contentVisibility: 'auto', containIntrinsicSize: prefs.compactView ? '0 44px' : '0 66px' }}>
                         {bulkMode && (
                           <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10"
                             onClick={e => { e.stopPropagation(); toggleSelect(entry.id); }}>
@@ -693,6 +710,11 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
                         </div>
                       </div>
                     ))}
+                    {displayedEntries.length > renderLimit && (
+                      <div ref={sentinelRef} className="py-4 text-center text-xs text-muted-foreground">
+                        Showing {renderLimit} of {displayedEntries.length}…
+                      </div>
+                    )}
                   </div>
                 ) : searchQuery ? (
                   /* Rich search empty state */

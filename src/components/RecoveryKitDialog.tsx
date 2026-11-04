@@ -37,8 +37,8 @@ export function RecoveryKitDialog() {
   const done = () => { setSaved(false); setDownloaded(false); dismissRecoveryKey(); };
 
   return (
-    <Dialog open onOpenChange={() => { /* closes only with Done */ }}>
-      <DialogContent className="sm:max-w-[520px] [&>button]:hidden" onEscapeKeyDown={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}>
+    <Dialog open onOpenChange={(o) => { if (!o) done(); }}>
+      <DialogContent className="w-[calc(100vw-24px)] sm:max-w-[520px] max-h-[calc(100dvh-24px)] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <div className="w-11 h-11 rounded-xl bg-primary/15 text-primary flex items-center justify-center mb-2 animate-in zoom-in-50 duration-300">
             <KeyRound className="w-5 h-5" />
@@ -50,7 +50,7 @@ export function RecoveryKitDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-4 gap-2 my-2" aria-label="Recovery key">
+        <div className="grid grid-cols-2 min-[420px]:grid-cols-4 gap-2 my-2" aria-label="Recovery key">
           {newRecoveryKey.split('-').map((g, i) => (
             <span key={i} style={{ animationDelay: `${i * 40}ms` }}
               className="font-mono font-bold tracking-[0.18em] text-center text-base py-2.5 rounded-lg bg-secondary/70 border border-border/60 animate-in fade-in slide-in-from-bottom-1 fill-mode-both duration-300 select-all">
@@ -59,7 +59,7 @@ export function RecoveryKitDialog() {
           ))}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col min-[420px]:flex-row gap-2">
           <Button type="button" className="flex-1" onClick={download}>
             {downloaded ? <Check className="w-4 h-4 mr-2" /> : <Download className="w-4 h-4 mr-2" />}Download Recovery Kit
           </Button>
@@ -74,6 +74,7 @@ export function RecoveryKitDialog() {
           I&apos;ve saved my recovery key somewhere safe
         </label>
         <Button type="button" onClick={done} disabled={!saved} variant={saved ? 'default' : 'secondary'}>Done</Button>
+        <p className="text-[11px] text-muted-foreground text-center">Closed it too soon? Make a new kit any time: Settings → Security → Recovery Kit.</p>
       </DialogContent>
     </Dialog>
   );

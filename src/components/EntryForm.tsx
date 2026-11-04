@@ -8,11 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
-import { PasswordEntry, VaultItemType, CardDetails, IdentityDetails, CustomField } from '@/types/vault';
+import { PasswordEntry, VaultItemType, CardDetails, IdentityDetails, CustomField, BankDetails } from '@/types/vault';
 import { parseTotp } from '@/lib/totp';
 import { CryptoService } from '@/lib/crypto';
 import { useVault } from '@/contexts/VaultContext';
-import { Eye, EyeOff, RefreshCw, Copy, Check, Loader2, Key, StickyNote, CreditCard, UserCircle, Wifi, AlertTriangle, Star, Plus, Trash2, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, RefreshCw, Copy, Check, Loader2, Key, StickyNote, CreditCard, UserCircle, Wifi, AlertTriangle, Star, Plus, Trash2, ShieldCheck, Landmark } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { getVaultPreference } from '@/hooks/useVaultPreferences';
 
@@ -101,6 +101,21 @@ const TYPE_CONFIGS: Record<VaultItemType, TypeConfig> = {
     passwordRequired: false,
     usernameRequired: false,
   },
+  bank: {
+    icon: Landmark,
+    label: 'Bank account',
+    websiteLabel: 'Name',
+    websitePlaceholder: 'Business current account…',
+    usernameLabel: '',
+    usernamePlaceholder: '',
+    passwordLabel: '',
+    showUrl: true,
+    showUsername: false,
+    showPassword: false,
+    canGenerate: false,
+    passwordRequired: false,
+    usernameRequired: false,
+  },
   wifi: {
     icon: Wifi,
     label: 'Wi-Fi',
@@ -118,13 +133,14 @@ const TYPE_CONFIGS: Record<VaultItemType, TypeConfig> = {
   },
 };
 
-const ITEM_TYPES: VaultItemType[] = ['login', 'note', 'card', 'identity', 'wifi'];
+const ITEM_TYPES: VaultItemType[] = ['login', 'note', 'card', 'bank', 'identity', 'wifi'];
 
 const emptyForm = () => ({
   type: (getVaultPreference('defaultEntryType') ?? 'login') as VaultItemType,
   website: '', url: '', urls: '', username: '', password: '', totp: '', notes: '', category: 'Other', tags: '', isFavorite: false,
   card: {} as CardDetails,
   identity: {} as IdentityDetails,
+  bank: {} as BankDetails,
   fields: [] as CustomField[],
 });
 
@@ -135,6 +151,17 @@ const CARD_FIELDS: { key: keyof CardDetails; label: string; placeholder: string;
   { key: 'cvv', label: 'Security code', placeholder: 'CVV', secret: true, half: true, mono: true },
   { key: 'pin', label: 'PIN', placeholder: 'Optional', secret: true, half: true, mono: true },
   { key: 'postcode', label: 'Billing postcode', placeholder: 'Optional', half: true },
+];
+
+const BANK_FIELDS: { key: keyof BankDetails; label: string; placeholder: string; secret?: boolean; half?: boolean; mono?: boolean }[] = [
+  { key: 'bankName', label: 'Bank', placeholder: 'Barclays, Millennium BCP, BAI…', half: true },
+  { key: 'accountName', label: 'Account name', placeholder: 'Name on the account', half: true },
+  { key: 'sortCode', label: 'Sort code', placeholder: '12-34-56', half: true, mono: true },
+  { key: 'accountNumber', label: 'Account number', placeholder: '12345678', secret: true, half: true, mono: true },
+  { key: 'iban', label: 'IBAN', placeholder: 'GB00 XXXX 0000 0000 0000 00', secret: true, mono: true },
+  { key: 'swift', label: 'SWIFT / BIC', placeholder: 'XXXXGB2L', half: true, mono: true },
+  { key: 'pin', label: 'PIN', placeholder: 'Optional', secret: true, half: true, mono: true },
+  { key: 'branch', label: 'Branch', placeholder: 'Optional' },
 ];
 
 const IDENTITY_FIELDS: { key: keyof IdentityDetails; label: string; placeholder: string; half?: boolean }[] = [
@@ -198,6 +225,7 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
           // name/number in the username/password slots.
           card: entry.card ?? (entry.type === 'card' ? { holder: entry.username || undefined, number: entry.password || undefined } : {}),
           identity: entry.identity ?? (entry.type === 'identity' ? { fullName: entry.username || undefined } : {}),
+          bank: entry.bank ?? {},
           fields: entry.fields ?? [],
         });
       } else {
@@ -255,6 +283,7 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
         totp: t === 'login' && formData.totp.trim() ? formData.totp.trim() : undefined,
         card: t === 'card' ? clean(formData.card) : undefined,
         identity: t === 'identity' ? clean(formData.identity) : undefined,
+        bank: t === 'bank' ? clean(formData.bank) : undefined,
         fields: fields.length ? fields : undefined,
         notes: formData.notes || undefined,
         category: formData.category,
@@ -491,6 +520,23 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
               ))}
               <button type="button" onClick={() => setShowPassword(v => !v)} className="col-span-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 w-fit">
                 {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}{showPassword ? 'Hide' : 'Show'} card number and codes
+              </button>
+            </div>
+          )}
+
+          {formData.type === 'bank' && (
+            <div className="grid grid-cols-2 gap-3">
+              {BANK_FIELDS.map(f => (
+                <div key={f.key} className={`space-y-1.5 ${f.half ? '' : 'col-span-2'}`}>
+                  <Label htmlFor={`ef-bank-${f.key}`} className="text-sm font-medium">{f.label}</Label>
+                  <Input id={`ef-bank-${f.key}`} value={formData.bank[f.key] ?? ''} placeholder={f.placeholder} autoComplete="off"
+                    type={f.secret && !showPassword ? 'password' : 'text'}
+                    onChange={e => setFormData(prev => ({ ...prev, bank: { ...prev.bank, [f.key]: e.target.value } }))}
+                    className={`h-10 bg-secondary/50 border-border/60 focus:border-primary text-sm ${f.mono ? 'font-mono' : ''}`} />
+                </div>
+              ))}
+              <button type="button" onClick={() => setShowPassword(v => !v)} className="col-span-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 w-fit">
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}{showPassword ? 'Hide' : 'Show'} account number and PIN
               </button>
             </div>
           )}

@@ -8,7 +8,7 @@ import { PasswordEntry, VaultItemType } from '@/types/vault';
 import { useVault } from '@/contexts/VaultContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useClipboard } from '@/hooks/useClipboard';
-import { Copy, Edit, Trash2, ExternalLink, Eye, EyeOff, Check, Star, Key, StickyNote, CreditCard, UserCircle, Wifi, Clock, ShieldCheck } from 'lucide-react';
+import { Copy, Edit, Trash2, ExternalLink, Eye, EyeOff, Check, Star, Key, StickyNote, CreditCard, UserCircle, Wifi, Clock, ShieldCheck, Landmark } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { parseTotp, totpNow } from '@/lib/totp';
 
@@ -28,6 +28,7 @@ const TYPE_ICONS: Record<VaultItemType, React.ElementType> = {
   card: CreditCard,
   identity: UserCircle,
   wifi: Wifi,
+  bank: Landmark,
 };
 
 interface EntryCardProps {
@@ -86,8 +87,8 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
   const maskedPassword = '•'.repeat(Math.min(entry.password?.length ?? 8, 16));
   const entryType: VaultItemType = entry.type ?? 'login';
   const TypeIcon = TYPE_ICONS[entryType];
-  const hasPassword = !!entry.password && entryType !== 'card';
-  const hasUsername = !!entry.username && entryType !== 'note' && entryType !== 'wifi' && entryType !== 'card';
+  const hasPassword = !!entry.password && entryType !== 'card' && entryType !== 'bank';
+  const hasUsername = !!entry.username && entryType !== 'note' && entryType !== 'wifi' && entryType !== 'card' && entryType !== 'bank';
 
   const gradients = [
     'from-blue-500 to-violet-600',
@@ -119,6 +120,8 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
               <img
                 src={faviconUrl!}
                 alt=""
+                loading="lazy"
+                decoding="async"
                 className="w-6 h-6 object-contain"
                 onError={() => setFaviconError(true)}
               />

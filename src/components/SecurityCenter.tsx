@@ -9,6 +9,7 @@ import { checkMultiplePasswords, BreachResult } from '@/lib/breach';
 import { PasswordEntry } from '@/types/vault';
 import { ShieldAlert, AlertTriangle, CheckCircle2, Globe, Lock, RefreshCw, Zap, Loader2, Info, ChevronDown, ChevronRight, ArrowRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { FixPasswordDialog, type FixReason } from '@/components/FixPasswordDialog';
 
 interface SecurityIssue {
   entry: PasswordEntry;
@@ -30,6 +31,7 @@ const SCORE_FACTORS = [
 export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
   const { vault } = useVault();
 
+  const [fix, setFix] = useState<{ entry: PasswordEntry; reason: FixReason } | null>(null);
   const [breachLoading, setBreachLoading] = useState(false);
   const [breachProgress, setBreachProgress] = useState(0);
   const [breachResults, setBreachResults] = useState<Map<string, BreachResult> | null>(null);
@@ -342,16 +344,14 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
                             Seen in {result.count.toLocaleString()} breach record{result.count !== 1 ? 's' : ''}
                           </p>
                         </div>
-                        {onEditEntry && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs px-2.5 border-red-500/30 text-red-400 hover:bg-red-500/10 flex-shrink-0"
-                            onClick={() => onEditEntry(entry)}
-                          >
-                            Fix now <ArrowRight className="w-3 h-3 ml-1" />
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs px-2.5 border-red-500/30 text-red-400 hover:bg-red-500/10 flex-shrink-0"
+                          onClick={() => setFix({ entry, reason: 'breached' })}
+                        >
+                          Fix now <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
                       </div>
                     );
                   })}
@@ -429,7 +429,16 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
                             }).join(' · ')}
                           </p>
                         </div>
-                        {onEditEntry && (
+                        {['weak', 'reused', 'stale'].includes(key) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs px-2.5 flex-shrink-0"
+                            onClick={() => setFix({ entry, reason: key === 'stale' ? 'old' : (key as FixReason) })}
+                          >
+                            Fix <ArrowRight className="w-3 h-3 ml-0.5" />
+                          </Button>
+                        ) : onEditEntry && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -448,6 +457,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
           })}
         </div>
       )}
+      {fix && <FixPasswordDialog entry={fix.entry} reason={fix.reason} onClose={() => setFix(null)} />}
     </div>
   );
 }
