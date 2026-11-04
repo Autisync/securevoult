@@ -52,3 +52,14 @@ node_modules/
 .github/
 **/tempobook/**
 node_modules
+
+# SecureVoult
+.env.production
+backups/
+scripts/.e2e-*.png
+sv-transfer.tgz
+securevoult-*.tgz
+securevoult-*.patch
+
+desktop/dist/
+*.zip

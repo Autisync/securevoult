@@ -129,7 +129,7 @@ const sections = [
     id: 'contact',
     title: 'Contact',
     content: (
-      <P>Questions about our use of cookies? Email <strong>privacy@securevoult.com</strong> or visit our <a href="/privacy" className="underline underline-offset-2 hover:opacity-80">Privacy Policy</a> for full details on how we handle your data.</P>
+      <P>Questions about our use of cookies? Email <strong>privacy@securevoult.co.uk</strong> or visit our <a href="/privacy" className="underline underline-offset-2 hover:opacity-80">Privacy Policy</a> for full details on how we handle your data.</P>
     ),
   },
 ];

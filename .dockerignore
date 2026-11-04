@@ -1,0 +1,16 @@
+node_modules
+*/node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+desktop/dist
+mobile
+expo
+docs/reports
+extension-package/*.zip
+*.zip
+*.tgz
+backups
+scripts/.e2e-*.png

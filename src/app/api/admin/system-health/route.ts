@@ -3,12 +3,17 @@ import mongoose from 'mongoose';
 import connectDB from '@/lib/db-connect';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.admin);
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);

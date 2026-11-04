@@ -1,406 +1,371 @@
-import { VaultData, PasswordEntry, EncryptedVault } from '@/types/vault';
-import { CryptoService } from './crypto';
+import { VaultData, PasswordEntry } from '@/types/vault';
 import { UniversalStorageService } from './storage';
 import { AuthService, getStoredSessionId } from '@/lib/auth';
+import {
+  createVaultKey, decryptWithKey, decryptWithPassword, encryptVaultJson, headerOf,
+  parseBlob, sameKeyHeader, type VaultKey,
+} from './vault-crypto';
+import { mergeVaults, reviveVault } from './vault-merge';
+import { baseDomain } from './domain';
 
-// Custom error thrown when the server rejects a save due to a version conflict.
+export { baseDomain };
+
+export class NoVaultError extends Error {
+  constructor() {
+    super('No vault found. Set up your vault first.');
+    this.name = 'NoVaultError';
+  }
+}
+
+/** Kept for callers that still import it; conflicts are now merged automatically. */
 export class VaultVersionConflictError extends Error {
   serverVersion: number;
   constructor(serverVersion: number) {
-    super('Your vault data is out of date. Please reload to get the latest version before saving.');
+    super('Your vault changed on another device.');
     this.name = 'VaultVersionConflictError';
     this.serverVersion = serverVersion;
   }
 }
 
-interface DatabaseVaultEntry {
-  id: string;
-  entryId: string;
-  title: string;
-  url: string;
-  category: string;
-  tags: string[];
-  isFavorite: boolean;
-  lastAccessed: string;
-  createdAt: string;
+class OfflineError extends Error {
+  constructor(cause?: unknown) { super('Server unreachable'); this.name = 'OfflineError'; this.cause = cause; }
 }
 
-interface DatabaseAPI {
-  // Vault methods
-  syncVault: (encryptedVault: string, token: string, clientVersion?: number) => Promise<{ success: boolean; version?: number; error?: string }>;
-  getVault: (token: string) => Promise<{ success: boolean; vault?: { encryptedData: string }; error?: string }>;
-  
-  // Entry methods
-  getEntries: (token: string, category?: string, search?: string) => Promise<{ success: boolean; entries?: DatabaseVaultEntry[]; error?: string }>;
-  createEntry: (entry: unknown, token: string) => Promise<{ success: boolean; entryId?: string; error?: string }>;
-}
+// ── Server API ───────────────────────────────────────────────────────────────
 
-class DatabaseService implements DatabaseAPI {
+interface ServerVault { encryptedData: string; version: number }
+
+class DatabaseService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    // In the extension window.location.origin is chrome-extension://[id]; use the app URL.
+    const isExtension = typeof chrome !== 'undefined' && typeof chrome.runtime !== 'undefined' && !!chrome.runtime.id;
+    this.baseUrl = isExtension
+      ? (process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.securevoult.co.uk')
+      : (typeof window !== 'undefined' ? window.location.origin : '');
   }
 
-  private async makeRequest(endpoint: string, options: RequestInit = {}) {
+  private async request(endpoint: string, init: RequestInit = {}): Promise<Response> {
+    const token = await AuthService.getIdToken();
+    if (!token) throw new OfflineError('not signed in');
+    const sessionId = getStoredSessionId();
     try {
-      // Get Firebase ID token
-      const token = await AuthService.getIdToken();
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-
-      const sessionId = getStoredSessionId();
-
-      const response = await fetch(`${this.baseUrl}/api${endpoint}`, {
+      return await fetch(`${this.baseUrl}/api${endpoint}`, {
+        ...init,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
-          ...options.headers,
+          ...init.headers,
         },
-        ...options,
       });
-
-      // Surface vault version conflicts as a typed error
-      if (response.status === 409) {
-        const data = await response.json().catch(() => ({}));
-        throw new VaultVersionConflictError(data.serverVersion ?? 0);
-      }
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message ?? data.error ?? 'Request failed');
-      }
-
-      return data;
-    } catch (error) {
-      if (error instanceof VaultVersionConflictError) throw error;
-      console.error(`API Error (${endpoint}):`, error instanceof Error ? error.message : String(error));
-      throw error;
+    } catch (e) {
+      throw new OfflineError(e);
     }
   }
 
-  async syncVault(encryptedVault: string, _token: string, clientVersion?: number) {
-    try {
-      const data = await this.makeRequest('/vault', {
-        method: 'POST',
-        body: JSON.stringify({ encryptedVault, ...(clientVersion !== undefined ? { version: clientVersion } : {}) }),
-      });
-
-      return { success: true, version: data.version };
-    } catch (error) {
-      if (error instanceof VaultVersionConflictError) throw error;
-      return { success: false, error: (error as Error).message };
-    }
+  async getVault(): Promise<ServerVault> {
+    const res = await this.request('/vault', { method: 'GET' });
+    if (res.status >= 500) throw new OfflineError(res.status);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message ?? 'Could not load your vault');
+    return { encryptedData: data.vault?.encryptedData ?? '', version: Number(data.vault?.version ?? 0) };
   }
 
-  async getVault(_token: string) {
-    try {
-      const data = await this.makeRequest('/vault', {
-        method: 'GET',
-      });
-
-      return { success: true, vault: data.vault };
-    } catch (error) {
-      return { success: false, error: (error as Error).message };
-    }
-  }
-
-  async getEntries(_token: string, category?: string, search?: string) {
-    try {
-      const params = new URLSearchParams();
-      if (category) params.append('category', category);
-      if (search) params.append('search', search);
-
-      const data = await this.makeRequest(`/entries?${params.toString()}`, {
-        method: 'GET',
-      });
-
-      return { success: true, entries: data.entries };
-    } catch (error) {
-      return { success: false, error: (error as Error).message };
-    }
-  }
-
-  async createEntry(entry: any, token: string) {
-    try {
-      const data = await this.makeRequest('/entries', {
-        method: 'POST',
-        body: JSON.stringify(entry),
-      });
-
-      return { success: true, entryId: data.entryId };
-    } catch (error) {
-      return { success: false, error: (error as Error).message };
-    }
+  /** Compare-and-set: succeeds only if the server is still at `baseVersion`. */
+  async putVault(encryptedVault: string, baseVersion: number, entryCount: number): Promise<{ ok: true; version: number } | { ok: false; serverVersion: number }> {
+    const res = await this.request('/vault', {
+      method: 'POST',
+      body: JSON.stringify({ encryptedVault, baseVersion, entryCount }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 409) return { ok: false, serverVersion: Number(data.serverVersion ?? 0) };
+    if (res.status >= 500) throw new OfflineError(res.status);
+    if (!res.ok) throw new Error(data.message ?? 'Could not save your vault');
+    return { ok: true, version: Number(data.version) };
   }
 }
 
-// Create singleton instance
 export const databaseAPI = new DatabaseService();
 
-// Enhanced vault functions with Firebase + MongoDB sync
+// ── Local copy (offline use) ─────────────────────────────────────────────────
+
 /**
- * Save the vault locally AND sync to the server.
- * Throws VaultVersionConflictError if the server has a newer version.
- * Returns true on full success, false if the server sync failed non-fatally.
+ * What this device keeps: the same encrypted blob the server has, which
+ * server version it was based on, and whether it has changes not yet uploaded.
  */
-export async function saveVaultToDatabase(
-  vault: VaultData,
-  masterPassword: string,
-  clientVersion?: number
-): Promise<boolean> {
-  // Always save locally first — this is the source of truth on the client
-  await VaultService.saveVault(vault, masterPassword);
+interface LocalCopy { blob: string; serverVersion: number; dirty: boolean; uid: string | null }
 
-  const token = await AuthService.getIdToken();
-  if (!token) {
-    // Not authenticated — local save is sufficient; server sync deferred
-    return true;
-  }
-
-  // Encrypt for server storage
-  const vaultJson = JSON.stringify(vault);
-  const { encrypted, salt, iv } = await CryptoService.encrypt(vaultJson, masterPassword);
-  const encryptedBlob = JSON.stringify({ data: encrypted, salt, iv, version: '1.0.0' });
-
-  // This will throw VaultVersionConflictError on 409 — propagate to caller
-  const result = await databaseAPI.syncVault(encryptedBlob, token, clientVersion);
-  return result.success;
+async function readLocal(): Promise<LocalCopy | null> {
+  const stored = await UniversalStorageService.loadVault().catch(() => null);
+  if (!stored) return null;
+  if (typeof stored === 'object' && 'blob' in stored) return stored as LocalCopy;
+  // Older builds stored the format-1 blob itself.
+  return { blob: JSON.stringify(stored), serverVersion: 0, dirty: true, uid: null };
 }
 
-export async function loadVaultFromDatabase(masterPassword: string): Promise<VaultData | null> {
+async function writeLocal(copy: LocalCopy): Promise<void> {
+  await UniversalStorageService.saveVault(copy);
+}
+
+export async function forgetLocalCopy(): Promise<void> {
+  await UniversalStorageService.clearVault().catch(() => {});
+}
+
+// ── Open / create / save ─────────────────────────────────────────────────────
+
+export interface OpenVault {
+  vault: VaultData;
+  key: VaultKey;
+  /** Server version this copy matches. */
+  serverVersion: number;
+  /** True when the server couldn't be reached; changes are kept here and uploaded later. */
+  offline: boolean;
+}
+
+const decode = (json: string) => reviveVault(JSON.parse(json) as VaultData);
+
+/** Unlock with the master password: the server copy, merged with anything this device hadn't uploaded. */
+export async function openVault(password: string): Promise<OpenVault> {
+  const uid = AuthService.currentUid();
+  const local = await readLocal();
+  const localUsable = local && (local.uid === null || local.uid === uid) ? local : null;
+
+  let server: ServerVault | null = null;
   try {
-    const token = await AuthService.getIdToken();
-    if (!token) {
-      console.warn('No auth token found, loading from local storage');
-      return VaultService.loadVault(masterPassword);
+    server = await databaseAPI.getVault();
+  } catch (e) {
+    if (!(e instanceof OfflineError)) throw e;
+  }
+
+  if (!server) {
+    if (!localUsable) throw new Error('Can\'t reach SecureVoult and there is no copy on this device yet.');
+    const { json, vk, upgraded } = await decryptWithPassword(localUsable.blob, password);
+    const vault = decode(json);
+    if (upgraded) await writeLocal({ blob: await encryptVaultJson(JSON.stringify(vault), vk), serverVersion: localUsable.serverVersion, dirty: true, uid });
+    return { vault, key: vk, serverVersion: localUsable.serverVersion, offline: true };
+  }
+
+  if (!server.encryptedData) {
+    // Nothing on the server. A vault that only ever lived on this device gets uploaded.
+    if (!localUsable) throw new NoVaultError();
+    const { json, vk } = await decryptWithPassword(localUsable.blob, password);
+    return saveVault(decode(json), vk, 0);
+  }
+
+  const opened = await decryptWithPassword(server.encryptedData, password);
+  let vault = decode(opened.json);
+  let needsUpload = opened.upgraded;
+
+  if (localUsable?.dirty) {
+    try {
+      const mine = parseBlob(localUsable.blob).v === 2
+        ? decode(await decryptWithKey(localUsable.blob, opened.vk))
+        : decode((await decryptWithPassword(localUsable.blob, password)).json);
+      vault = mergeVaults(mine, vault);
+      needsUpload = true;
+    } catch {
+      // Local copy made with a different key (e.g. vault reset elsewhere): the server wins.
+    }
+  }
+
+  if (needsUpload) return saveVault(vault, opened.vk, server.version);
+  await writeLocal({ blob: server.encryptedData, serverVersion: server.version, dirty: false, uid });
+  return { vault, key: opened.vk, serverVersion: server.version, offline: false };
+}
+
+/**
+ * Re-opens with a key kept from an earlier unlock (browser extension):
+ * this device's copy first, then whatever changed on the server.
+ */
+export async function openWithKey(key: VaultKey): Promise<OpenVault> {
+  const uid = AuthService.currentUid();
+  const local = await readLocal();
+  if (!local || (local.uid !== null && local.uid !== uid)) throw new NoVaultError();
+  const vault = decode(await decryptWithKey(local.blob, key));
+  let vk = key;
+  const localHeader = headerOf(local.blob);
+  if (localHeader && !sameKeyHeader(vk.header, localHeader)) vk = { key: vk.key, header: localHeader };
+  if (local.dirty) return saveVault(vault, vk, local.serverVersion);
+  const pulled = await pullVault(vault, vk, local.serverVersion).catch(() => null);
+  if (pulled) return pulled;
+  return { vault, key: vk, serverVersion: local.serverVersion, offline: false };
+}
+
+/** The copy on this device without contacting the server (extension background). */
+export async function readLocalVault(key: VaultKey): Promise<{ vault: VaultData; serverVersion: number } | null> {
+  const local = await readLocal();
+  if (!local) return null;
+  const vault = decode(await decryptWithKey(local.blob, key));
+  return { vault, serverVersion: local.serverVersion };
+}
+
+export async function createVault(password: string): Promise<OpenVault> {
+  const vk = await createVaultKey(password);
+  return saveVault(VaultService.createEmptyVault(), vk, 0);
+}
+
+/**
+ * Encrypts and uploads. If another device saved first, its copy is fetched,
+ * merged item by item, and the merge is uploaded instead.
+ * Never throws for a network problem: the change stays on this device.
+ */
+export async function saveVault(vault: VaultData, key: VaultKey, baseVersion: number): Promise<OpenVault> {
+  const uid = AuthService.currentUid();
+  let current = vault;
+  let base = baseVersion;
+  let vk = key;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const blob = await encryptVaultJson(JSON.stringify(current), vk);
+    await writeLocal({ blob, serverVersion: base, dirty: true, uid });
+
+    let result;
+    try {
+      result = await databaseAPI.putVault(blob, base, current.entries.length);
+    } catch (e) {
+      if (e instanceof OfflineError) return { vault: current, key: vk, serverVersion: base, offline: true };
+      throw e;
     }
 
-    const result = await databaseAPI.getVault(token);
-
-    if (result.success && result.vault?.encryptedData) {
-      try {
-        const parsed = JSON.parse(result.vault.encryptedData);
-        const decrypted = await CryptoService.decrypt(parsed.data, parsed.salt, parsed.iv, masterPassword);
-        const vault: VaultData = JSON.parse(decrypted);
-
-        // Convert date strings back to Date objects
-        vault.createdAt = new Date(vault.createdAt);
-        vault.updatedAt = new Date(vault.updatedAt);
-        vault.entries = vault.entries.map((entry: PasswordEntry) => ({
-          ...entry,
-          createdAt: new Date(entry.createdAt),
-          updatedAt: new Date(entry.updatedAt),
-        }));
-
-        // Update local cache
-        await VaultService.saveVault(vault, masterPassword);
-        return vault;
-      } catch {
-        console.warn('Failed to decrypt server vault, falling back to local');
-      }
+    if (result.ok) {
+      await writeLocal({ blob, serverVersion: result.version, dirty: false, uid });
+      return { vault: current, key: vk, serverVersion: result.version, offline: false };
     }
 
-    return VaultService.loadVault(masterPassword);
-  } catch (error) {
-    console.error('Error loading vault from database:', error);
-    return VaultService.loadVault(masterPassword);
+    // Someone else saved first: take their copy and merge.
+    const server = await databaseAPI.getVault();
+    if (!server.encryptedData) { base = 0; continue; }
+    const theirs = decode(await decryptWithKey(server.encryptedData, vk));
+    // Master password changed on another device: same vault key, new wrapping. Adopt it.
+    const theirHeader = headerOf(server.encryptedData);
+    if (theirHeader && !sameKeyHeader(vk.header, theirHeader)) vk = { key: vk.key, header: theirHeader };
+    current = mergeVaults(current, theirs);
+    base = server.version;
+  }
+  throw new Error('Your vault keeps changing on another device. Try again in a moment.');
+}
+
+/** Fetches the server copy and merges it in (other devices' changes). */
+export async function pullVault(local: VaultData, key: VaultKey, knownVersion: number): Promise<OpenVault | null> {
+  let server: ServerVault;
+  try { server = await databaseAPI.getVault(); } catch { return null; }
+  if (!server.encryptedData || server.version === knownVersion) return null;
+  const theirs = decode(await decryptWithKey(server.encryptedData, key));
+  const theirHeader = headerOf(server.encryptedData);
+  const vk = theirHeader && !sameKeyHeader(key.header, theirHeader) ? { key: key.key, header: theirHeader } : key;
+  const merged = mergeVaults(local, theirs);
+  await writeLocal({ blob: server.encryptedData, serverVersion: server.version, dirty: false, uid: AuthService.currentUid() });
+  return { vault: merged, key: vk, serverVersion: server.version, offline: false };
+}
+
+/** Is there a vault for this account (server first, then this device)? */
+export async function vaultExists(): Promise<boolean> {
+  try {
+    const server = await databaseAPI.getVault();
+    if (server.encryptedData) return true;
+  } catch { /* offline: fall through */ }
+  const local = await readLocal();
+  const uid = AuthService.currentUid();
+  return !!local && (local.uid === null || local.uid === uid);
+}
+
+// ── Backups ──────────────────────────────────────────────────────────────────
+
+/** An encrypted backup file. It opens with the master password in use when it was made. */
+export async function exportBackup(vault: VaultData, vk: VaultKey): Promise<string> {
+  const blob = JSON.parse(await encryptVaultJson(JSON.stringify({ ...vault, exportedAt: new Date().toISOString() }), vk));
+  return JSON.stringify({ type: 'password_manager_backup', app: 'SecureVoult', ...blob }, null, 2);
+}
+
+export async function readBackup(fileText: string, password: string): Promise<VaultData> {
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(fileText); } catch { throw new Error('This isn\'t a SecureVoult backup file'); }
+  if (parsed.type !== 'password_manager_backup') throw new Error('This isn\'t a SecureVoult backup file');
+  try {
+    return decode((await decryptWithPassword(parsed, password)).json);
+  } catch {
+    throw new Error('Wrong password for this backup, or the file is damaged');
   }
 }
+
+// ── Pure helpers ─────────────────────────────────────────────────────────────
+
+export type NewEntry = Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'>;
 
 export class VaultService {
-  private static readonly VERSION = '1.0.0';
+  private static readonly VERSION = '2.0.0';
 
-  // Initialize empty vault
   static createEmptyVault(): VaultData {
-    return {
-      entries: [],
-      version: this.VERSION,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+    return { entries: [], version: this.VERSION, createdAt: new Date(), updatedAt: new Date(), deleted: {} };
   }
 
-  // Save encrypted vault using universal storage
-  static async saveVault(vault: VaultData, masterPassword: string): Promise<void> {
-    const vaultJson = JSON.stringify(vault);
-    const { encrypted, salt, iv } = await CryptoService.encrypt(vaultJson, masterPassword);
-    
-    const encryptedVault: EncryptedVault = {
-      data: encrypted,
-      salt,
-      iv,
-      version: this.VERSION
-    };
-
-    await UniversalStorageService.saveVault(encryptedVault);
+  static addEntry(vault: VaultData, entry: NewEntry): VaultData {
+    return this.addEntries(vault, [entry]);
   }
 
-  // Load and decrypt vault using universal storage
-  static async loadVault(masterPassword: string): Promise<VaultData | null> {
-    const encryptedVault = await UniversalStorageService.loadVault();
-    if (!encryptedVault) return null;
-
-    try {
-      const decryptedJson = await CryptoService.decrypt(
-        encryptedVault.data,
-        encryptedVault.salt,
-        encryptedVault.iv,
-        masterPassword
-      );
-
-      const vault: VaultData = JSON.parse(decryptedJson);
-      
-      // Convert date strings back to Date objects
-      vault.createdAt = new Date(vault.createdAt);
-      vault.updatedAt = new Date(vault.updatedAt);
-      vault.entries = vault.entries.map(entry => ({
-        ...entry,
-        createdAt: new Date(entry.createdAt),
-        updatedAt: new Date(entry.updatedAt)
-      }));
-
-      return vault;
-    } catch (error) {
-      console.error('Failed to decrypt vault:', error);
-      throw new Error('Invalid master password or corrupted vault');
-    }
+  static addEntries(vault: VaultData, list: NewEntry[]): VaultData {
+    const now = new Date();
+    const added = list.map((entry) => ({ ...entry, id: crypto.randomUUID(), createdAt: now, updatedAt: now }) as PasswordEntry);
+    return { ...vault, entries: [...vault.entries, ...added], updatedAt: now };
   }
 
-  // Check if vault exists using universal storage
-  static async hasVault(): Promise<boolean> {
-    return await UniversalStorageService.hasVault();
-  }
-
-  // Add entry to vault
-  static addEntry(vault: VaultData, entry: Omit<PasswordEntry, 'id' | 'createdAt' | 'updatedAt'>): VaultData {
-    const newEntry: PasswordEntry = {
-      ...entry,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    return {
-      ...vault,
-      entries: [...vault.entries, newEntry],
-      updatedAt: new Date()
-    };
-  }
-
-  // Update entry in vault
   static updateEntry(vault: VaultData, entryId: string, updates: Partial<Omit<PasswordEntry, 'id' | 'createdAt'>>): VaultData {
-    const entries = vault.entries.map(entry => 
-      entry.id === entryId 
-        ? { ...entry, ...updates, updatedAt: new Date() }
-        : entry
-    );
-
-    return {
-      ...vault,
-      entries,
-      updatedAt: new Date()
-    };
+    const now = new Date();
+    const entries = vault.entries.map((entry) => {
+      if (entry.id !== entryId) return entry;
+      const next = { ...entry, ...updates, updatedAt: now };
+      if (updates.password !== undefined && entry.password && updates.password !== entry.password) {
+        next.passwordHistory = [{ password: entry.password, changedAt: now.toISOString() }, ...(entry.passwordHistory ?? [])].slice(0, 10);
+      }
+      return next;
+    });
+    return { ...vault, entries, updatedAt: now };
   }
 
-  // Delete entry from vault
   static deleteEntry(vault: VaultData, entryId: string): VaultData {
+    const now = new Date();
     return {
       ...vault,
-      entries: vault.entries.filter(entry => entry.id !== entryId),
-      updatedAt: new Date()
+      entries: vault.entries.filter((entry) => entry.id !== entryId),
+      deleted: { ...(vault.deleted ?? {}), [entryId]: now.toISOString() },
+      updatedAt: now,
     };
   }
 
-  // Search entries
   static searchEntries(vault: VaultData, query: string): PasswordEntry[] {
-    if (!query.trim()) return vault.entries;
-
-    const searchTerm = query.toLowerCase();
-    return vault.entries.filter(entry =>
-      entry.website.toLowerCase().includes(searchTerm) ||
-      entry.username.toLowerCase().includes(searchTerm) ||
-      entry.category.toLowerCase().includes(searchTerm) ||
-      entry.notes?.toLowerCase().includes(searchTerm)
+    const q = query.trim().toLowerCase();
+    if (!q) return vault.entries;
+    return vault.entries.filter((e) =>
+      [e.website, e.username, e.category, e.notes, e.url, ...(e.urls ?? []), e.card?.holder, e.identity?.fullName, e.identity?.email, ...(e.tags ?? [])]
+        .some((v) => v?.toLowerCase().includes(q)),
     );
   }
 
-  // Filter entries by category
   static filterByCategory(vault: VaultData, category: string): PasswordEntry[] {
     if (category === 'all') return vault.entries;
-    return vault.entries.filter(entry => entry.category === category);
+    return vault.entries.filter((entry) => entry.category === category);
   }
 
-  // Get unique categories
   static getCategories(vault: VaultData): string[] {
-    const categories = new Set(vault.entries.map(entry => entry.category));
-    return Array.from(categories).sort();
+    return Array.from(new Set(vault.entries.map((entry) => entry.category).filter(Boolean))).sort();
   }
 
-  // Find entries matching current domain
+  /** Logins for a site: same registrable domain, or any of the item's extra addresses. */
   static findEntriesForDomain(vault: VaultData, domain: string): PasswordEntry[] {
-    const cleanDomain = domain.replace('www.', '').toLowerCase();
-    return vault.entries.filter(entry => {
-      const entryDomain = entry.url ? 
-        new URL(entry.url).hostname.replace('www.', '').toLowerCase() :
-        entry.website.toLowerCase();
-      return entryDomain.includes(cleanDomain) || cleanDomain.includes(entryDomain);
+    const site = baseDomain(domain);
+    if (!site) return [];
+    return vault.entries.filter((e) => {
+      if (e.type && e.type !== 'login') return false;
+      const addresses = [e.url, ...(e.urls ?? [])].filter(Boolean) as string[];
+      if (!addresses.length && /\.[a-z]{2,}$/i.test(e.website.trim())) addresses.push(e.website.trim());
+      return addresses.some((u) => baseDomain(hostOf(u)) === site);
     });
   }
-
-  // Export vault as JSON
-  static async exportVault(vault: VaultData, masterPassword: string): Promise<string> {
-    const exportData = {
-      ...vault,
-      exportedAt: new Date().toISOString(),
-      appVersion: this.VERSION
-    };
-
-    const { encrypted, salt, iv } = await CryptoService.encrypt(JSON.stringify(exportData), masterPassword);
-    
-    return JSON.stringify({
-      data: encrypted,
-      salt,
-      iv,
-      version: this.VERSION,
-      type: 'password_manager_backup'
-    }, null, 2);
-  }
-
-  // Import vault from JSON
-  static async importVault(jsonData: string, masterPassword: string): Promise<VaultData> {
-    try {
-      const importData = JSON.parse(jsonData);
-      
-      if (importData.type !== 'password_manager_backup') {
-        throw new Error('Invalid backup file format');
-      }
-
-      const decryptedJson = await CryptoService.decrypt(
-        importData.data,
-        importData.salt,
-        importData.iv,
-        masterPassword
-      );
-
-      const vault: VaultData = JSON.parse(decryptedJson);
-      
-      // Convert date strings back to Date objects
-      vault.createdAt = new Date(vault.createdAt);
-      vault.updatedAt = new Date(vault.updatedAt);
-      vault.entries = vault.entries.map(entry => ({
-        ...entry,
-        createdAt: new Date(entry.createdAt),
-        updatedAt: new Date(entry.updatedAt)
-      }));
-
-      return vault;
-    } catch (error) {
-      console.error('Failed to import vault:', error);
-      throw new Error('Invalid backup file or incorrect password');
-    }
-  }
 }
+
+function hostOf(url: string): string {
+  try { return new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `https://${url}`).hostname; } catch { return ''; }
+}
+

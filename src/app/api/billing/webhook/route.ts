@@ -19,6 +19,7 @@ import connectDB from '@/lib/db-connect';
 import { User, Company } from '@/lib/models';
 import { constructWebhookEvent } from '@/lib/stripe';
 import { logLimitEvent } from '@/lib/limit-logger';
+import { badRequest, internalError, serviceUnavailable } from '@/lib/api-error';
 import type { PlanId } from '@/lib/plans';
 import type Stripe from 'stripe';
 
@@ -41,14 +42,14 @@ function stripePriceToplan(priceId: string): PlanId | null {
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature');
   if (!signature) {
-    return NextResponse.json({ error: 'Missing stripe-signature header.' }, { status: 400 });
+    return badRequest('Missing stripe-signature header.');
   }
 
   let rawBody: string;
   try {
     rawBody = await request.text();
   } catch {
-    return NextResponse.json({ error: 'Could not read request body.' }, { status: 400 });
+    return badRequest('Could not read request body.');
   }
 
   let event: Stripe.Event;
@@ -56,24 +57,21 @@ export async function POST(request: NextRequest) {
     event = constructWebhookEvent(rawBody, signature);
   } catch (err) {
     console.error('[stripe/webhook] Signature verification failed:', err);
-    return NextResponse.json({ error: 'Invalid webhook signature.' }, { status: 400 });
+    return badRequest('Invalid webhook signature.');
   }
 
   try {
     await connectDB();
   } catch {
-    // Return 200 to prevent Stripe retrying if DB is briefly unavailable —
-    // but log so we can investigate if it persists.
     console.error('[stripe/webhook] DB unavailable — event not processed:', event.type);
-    return NextResponse.json({ received: true, processed: false });
+    return serviceUnavailable('Webhook processing unavailable. Please retry.');
   }
 
   try {
     await handleEvent(event);
   } catch (err) {
     console.error('[stripe/webhook] Handler error:', err);
-    // Return 200 to avoid Stripe retrying non-retryable errors
-    return NextResponse.json({ received: true, processed: false });
+    return internalError('Webhook processing failed.');
   }
 
   return NextResponse.json({ received: true, processed: true });

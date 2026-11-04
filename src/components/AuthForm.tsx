@@ -117,7 +117,7 @@ export function AuthForm() {
           <div className="space-y-4">
             {[
               { icon: Lock,        text: 'Zero-knowledge architecture — we never see your data' },
-              { icon: ShieldCheck, text: 'AES-256-GCM encryption with PBKDF2 key derivation' },
+              { icon: ShieldCheck, text: 'AES-256-GCM encryption with Argon2id key derivation' },
               { icon: Zap,         text: 'Instant autofill across browser and mobile' },
             ].map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-start gap-3">

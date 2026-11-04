@@ -22,6 +22,6 @@ cd extension-package && zip -r ../securevoult-chrome.zip . -x "*.DS_Store"
 
 - [ ] Extension loads without errors in Chrome (chrome://extensions → Load unpacked)
 - [ ] All screenshots created (see per-store screenshots/README.md)
-- [ ] Privacy policy live at https://securevoult.com/privacy
+- [ ] Privacy policy live at https://securevoult.co.uk/privacy
 - [ ] Developer account created for each store
 - [ ] Version bumped in extension-package/manifest.json

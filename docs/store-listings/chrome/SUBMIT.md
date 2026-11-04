@@ -18,5 +18,5 @@ Store URL: https://chrome.google.com/webstore/devconsole
 
 - You need a Google developer account ($5 one-time fee).
 - Manifest version 3 (MV3) is required — our manifest.json already uses MV3.
-- "Dangerous" permissions (host_permissions: http://*/* https://*/*) will be reviewed.
-- Include a justification in the review notes: autofill requires broad host permissions.
+- Broad host permissions (host_permissions: https://*/*) will still receive manual review.
+- Include a justification in the review notes: autofill requires access on secure login pages.

@@ -28,9 +28,9 @@ const sections = [
         <Table
           headers={['Target', 'Description']}
           rows={[
-            ['securevoult.com', 'Main web application and marketing site'],
-            ['api.securevoult.com', 'API endpoints'],
-            ['app.securevoult.com', 'Authenticated vault application'],
+            ['securevoult.co.uk', 'Main web application and marketing site'],
+            ['api.securevoult.co.uk', 'API endpoints'],
+            ['app.securevoult.co.uk', 'Authenticated vault application'],
             ['SecureVoult browser extension', 'Chrome, Firefox, Edge, Brave, Opera, Safari'],
             ['SecureVoult desktop app', 'Windows, macOS, Linux (Electron)'],
             ['SecureVoult mobile app', 'iOS and Android'],
@@ -56,7 +56,7 @@ const sections = [
     content: (
       <>
         <H3>Preferred method: encrypted email</H3>
-        <P>Email <strong>security@securevoult.com</strong> with the following information:</P>
+        <P>Email <strong>security@securevoult.co.uk</strong> with the following information:</P>
         <Ul>
           <Li>A clear description of the vulnerability and its potential impact</Li>
           <Li>Step-by-step reproduction instructions</Li>
@@ -107,7 +107,7 @@ const sections = [
           <Li>Do not demand payment as a condition of disclosure (extortion is not permitted)</Li>
         </Ul>
         <InfoBox color="blue">
-          Testing against your own free account for security research purposes is permitted. Please use the dedicated test environment at <strong>test.securevoult.com</strong> where available.
+          Testing against your own free account for security research purposes is permitted. Please use the dedicated test environment at <strong>test.securevoult.co.uk</strong> where available.
         </InfoBox>
       </>
     ),
@@ -154,7 +154,7 @@ const sections = [
       <>
         <P>Understanding our architecture helps focus research on meaningful targets:</P>
         <H3>Zero-knowledge encryption</H3>
-        <P>All vault data is encrypted client-side using AES-256-GCM with keys derived from your master password (PBKDF2/Argon2id). Our servers store only ciphertext — even a full database compromise would not expose vault contents.</P>
+        <P>All vault data is encrypted client-side using AES-256-GCM with keys derived from your master password (Argon2id). Our servers store only ciphertext — even a full database compromise would not expose vault contents.</P>
         <H3>Authentication</H3>
         <Ul>
           <Li>Firebase Authentication (email/password + Google OAuth)</Li>
@@ -184,7 +184,7 @@ const sections = [
     title: 'Security Advisories',
     content: (
       <>
-        <P>We publish details of resolved security vulnerabilities in the interest of transparency. Advisories are published at <strong>securevoult.com/advisories</strong> after fixes are deployed.</P>
+        <P>We publish details of resolved security vulnerabilities in the interest of transparency. Advisories are published at <strong>securevoult.co.uk/advisories</strong> after fixes are deployed.</P>
         <P>SecureVoult was founded in 2024. No security advisories have been published to date.</P>
         <InfoBox color="green">
           We are committed to transparent security communication. If we ever experience a data breach or significant security incident, we will notify affected users within 72 hours and publish a full post-mortem.
@@ -209,12 +209,12 @@ const sections = [
     content: (
       <>
         <Ul>
-          <Li>Security disclosures: security@securevoult.com</Li>
+          <Li>Security disclosures: security@securevoult.co.uk</Li>
           <Li>PGP key: keybase.io/securevoult</Li>
-          <Li>General security enquiries: security@securevoult.com</Li>
+          <Li>General security enquiries: security@securevoult.co.uk</Li>
           <Li>For urgent incidents: include [URGENT] in the subject line for faster triage</Li>
         </Ul>
-        <P>For non-security issues (billing, account access, general support), please use the in-app help system or email support@securevoult.com.</P>
+        <P>For non-security issues (billing, account access, general support), please use the in-app help system or email support@securevoult.co.uk.</P>
       </>
     ),
   },

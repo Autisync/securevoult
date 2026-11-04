@@ -100,15 +100,26 @@ export class CryptoService {
     // Fallback so charset is never empty
     if (charset.length === 0) charset = lowercase + numbers;
 
-    let password = '';
-    const array = new Uint8Array(length);
-    crypto.getRandomValues(array);
-
-    for (let i = 0; i < length; i++) {
-      password += charset[array[i] % charset.length];
+    // Unbiased: draw 32-bit values and reject the top slice that would favour
+    // early characters. Every chosen character class appears at least once.
+    const randInt = (max: number): number => {
+      const limit = Math.floor(0x100000000 / max) * max;
+      const buf = new Uint32Array(1);
+      for (;;) {
+        crypto.getRandomValues(buf);
+        if (buf[0] < limit) return buf[0] % max;
+      }
+    };
+    const pick = (set: string): string => set[randInt(set.length)];
+    const required = [lowercase, includeUppercase && uppercase, includeNumbers && numbers, includeSymbols && symbols]
+      .filter((x): x is string => !!x);
+    const n = Math.max(length, required.length);
+    const chars = Array.from({ length: n }, (_, i) => (i < required.length ? pick(required[i]) : pick(charset)));
+    for (let i = chars.length - 1; i > 0; i--) {
+      const j = randInt(i + 1);
+      [chars[i], chars[j]] = [chars[j], chars[i]];
     }
-
-    return password;
+    return chars.join('');
   }
 
   // Check password strength

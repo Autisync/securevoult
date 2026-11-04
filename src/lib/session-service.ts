@@ -39,6 +39,16 @@ export interface PublicSession {
   isCurrent: boolean;
 }
 
+export async function canReuseSessionId(
+  firebaseUid: string,
+  sessionId: string
+): Promise<boolean> {
+  if (!sessionId) return false;
+  await connectDB();
+  const existing = await Session.findOne({ sessionId }).select('firebaseUid').lean() as { firebaseUid?: string } | null;
+  return !existing || existing.firebaseUid === firebaseUid;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -86,17 +96,16 @@ export async function createOrUpdateSession(
   await connectDB();
 
   await Session.findOneAndUpdate(
-    { sessionId },
+    { sessionId, firebaseUid },
     {
       $set: {
-        firebaseUid,
         clientType: meta.clientType,
         userAgent: meta.userAgent.slice(0, 512), // cap UA length
         ipAddress: meta.ipAddress,
         lastSeenAt: new Date(),
         isRevoked: false,
       },
-      $setOnInsert: { sessionId },
+      $setOnInsert: { sessionId, firebaseUid },
     },
     { upsert: true }
   );

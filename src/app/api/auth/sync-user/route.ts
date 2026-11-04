@@ -3,18 +3,20 @@ import connectDB from '@/lib/db-connect';
 import { User } from '@/lib/models';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
-import { createOrUpdateSession, ClientType } from '@/lib/session-service';
+import { createOrUpdateSession, ClientType, canReuseSessionId } from '@/lib/session-service';
+import { tooManyRequests, serviceUnavailable } from '@/lib/api-error';
 import { randomUUID } from 'crypto';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function POST(request: NextRequest) {
   // Rate limit: 20 syncs per 15 min per IP
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.authSync);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please try again later.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const authResult = await requireAuthenticatedUser(request);
@@ -39,24 +41,37 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
   } catch {
-    return NextResponse.json(
-      { error: 'Database unavailable. Please try again later.' },
-      { status: 503 }
-    );
+    return serviceUnavailable('Database unavailable.');
   }
 
-  const update = {
+  // Resolve role: promote if email is in the ADMIN_EMAILS env list
+  const adminEmails = (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const isAdminEmail = adminEmails.includes((email ?? '').toLowerCase());
+
+  const update: Record<string, unknown> = {
     email,
     displayName: name ?? body.displayName ?? '',
     photoURL: picture ?? body.photoURL ?? '',
     provider: body.provider ?? 'password',
     emailVerified: emailVerified ?? body.emailVerified ?? false,
     isActive: true,
+    // Always enforce admin role for designated emails; never overwrite role for normal users
+    ...(isAdminEmail ? { role: 'admin' } : {}),
   };
 
   const user = await User.findOneAndUpdate(
     { firebaseUid: uid },
-    { $set: update, $setOnInsert: { firebaseUid: uid, role: 'user' } },
+    {
+      $set: update,
+      $setOnInsert: {
+        firebaseUid: uid,
+        // Only set default role on insert; $set already handles admin promotion above
+        ...(!isAdminEmail ? { role: 'user' } : {}),
+      },
+    },
     { upsert: true, new: true }
   );
 
@@ -65,8 +80,12 @@ export async function POST(request: NextRequest) {
     body.clientType === 'extension' ? 'extension'
       : body.clientType === 'mobile' ? 'mobile'
       : 'web';
-  const sessionId = body.sessionId && typeof body.sessionId === 'string' && body.sessionId.length <= 64
-    ? body.sessionId
+  const requestedSessionId =
+    body.sessionId && typeof body.sessionId === 'string' && body.sessionId.length <= 64
+      ? body.sessionId
+      : null;
+  const sessionId = requestedSessionId && await canReuseSessionId(uid, requestedSessionId)
+    ? requestedSessionId
     : randomUUID();
   const ua =
     clientType === 'extension' ? '__extension__'

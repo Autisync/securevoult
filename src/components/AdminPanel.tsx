@@ -17,7 +17,7 @@ import { AdminSessions } from '@/components/admin/AdminSessions';
 import {
   LayoutDashboard, Users, Shield, Activity, ShieldAlert, AlertTriangle,
   Globe, LogOut, Loader2, Search, Chrome, Package, Info, ChevronRight,
-  HeartPulse, Building2, Monitor,
+  HeartPulse, Building2, Monitor, Download, CheckCircle2, Copy, Terminal,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -69,6 +69,218 @@ const ACTION_COLORS: Record<string, string> = {
 interface AdminPanelProps {
   onBackToVault: () => void;
   onViewPublicSite: () => void;
+}
+
+// ── Extension install section ──────────────────────────────────────────────
+
+type BrowserTab = 'chrome' | 'edge' | 'brave' | 'firefox' | 'safari';
+
+const BROWSER_TABS: { id: BrowserTab; label: string; icon: string }[] = [
+  { id: 'chrome',  label: 'Chrome',  icon: '🌐' },
+  { id: 'edge',    label: 'Edge',    icon: '🔷' },
+  { id: 'brave',   label: 'Brave',   icon: '🦁' },
+  { id: 'firefox', label: 'Firefox', icon: '🦊' },
+  { id: 'safari',  label: 'Safari',  icon: '🧭' },
+];
+
+const FEATURES = [
+  'Auto-detect login forms on websites',
+  'One-click password autofill',
+  'AES-256 client-side encryption',
+  'Context menu integration',
+  'Built-in password generator',
+  'Keyboard shortcut: Ctrl+Shift+F',
+];
+
+function CodeLine({ children }: { children: string }) {
+  const { toast } = useToast();
+  return (
+    <div className="flex items-center justify-between gap-2 bg-[#0d1117] border border-border/40 rounded-lg px-3 py-2 font-mono text-xs text-green-400">
+      <span className="truncate">{children}</span>
+      <button
+        onClick={() => { navigator.clipboard.writeText(children); toast({ title: 'Copied!' }); }}
+        className="text-muted-foreground hover:text-foreground flex-shrink-0"
+        aria-label="Copy"
+      >
+        <Copy className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function Step({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3">
+      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">{n}</span>
+      <p className="text-sm text-muted-foreground pt-0.5">{children}</p>
+    </div>
+  );
+}
+
+function Code({ children }: { children: string }) {
+  return <code className="text-xs bg-secondary px-1.5 py-0.5 rounded font-mono">{children}</code>;
+}
+
+function ExtensionSection() {
+  const [tab, setTab] = useState<BrowserTab>('chrome');
+  const { toast } = useToast();
+
+  const handleDownload = () => {
+    const a = document.createElement('a');
+    a.href = '/api/extension/download';
+    a.download = 'securevoult-extension.zip';
+    a.click();
+    toast({ title: 'Downloading extension package…', description: 'Unzip and load the folder via developer mode.' });
+  };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold">Browser extension</h2>
+        <p className="text-sm text-muted-foreground">Install the SecureVoult extension in any major browser.</p>
+      </div>
+
+      {/* Info banner */}
+      <div className="flex items-start gap-3 p-3.5 bg-primary/8 border border-primary/15 rounded-xl">
+        <Info className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+        <p className="text-sm text-primary/80">The extension auto-fills passwords using secure client-side AES-256 encryption. Your vault key never leaves your device.</p>
+      </div>
+
+      {/* Features */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+        <p className="text-sm font-semibold">Included features</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4">
+          {FEATURES.map(f => (
+            <div key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+              {f}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Download */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+        <p className="text-sm font-semibold">Step 1 — Download the extension package</p>
+        <p className="text-sm text-muted-foreground">Download the latest extension package, then follow the browser-specific steps below to load it.</p>
+        <div className="flex items-start gap-2 p-3 bg-yellow-500/8 border border-yellow-500/20 rounded-lg">
+          <Info className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-yellow-500/80">After extracting the zip, select the <strong>extracted folder itself</strong> (not a subfolder inside it). Chrome requires <Code>manifest.json</Code> to be at the root of the folder you select.</p>
+        </div>
+        <Button className="w-full bg-primary hover:bg-primary/90 h-10" onClick={handleDownload}>
+          <Download className="w-4 h-4 mr-2" />Download extension package (.zip)
+        </Button>
+      </div>
+
+      {/* Per-browser steps */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        {/* Tab bar */}
+        <div className="flex border-b border-border overflow-x-auto">
+          {BROWSER_TABS.map(b => (
+            <button
+              key={b.id}
+              onClick={() => setTab(b.id)}
+              className={[
+                'flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
+                tab === b.id
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              ].join(' ')}
+            >
+              <span>{b.icon}</span>{b.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-5 space-y-3">
+          {tab === 'chrome' && (
+            <>
+              <p className="text-sm font-medium">Step 2 — Load in Chrome</p>
+              <div className="space-y-2.5">
+                <Step n={1}>Open <Code>chrome://extensions</Code> in your browser address bar.</Step>
+                <Step n={2}>Toggle <strong>Developer mode</strong> on (top-right corner).</Step>
+                <Step n={3}>Click <strong>Load unpacked</strong> and select the <strong>extracted folder</strong> (the one containing <Code>manifest.json</Code>).</Step>
+                <Step n={4}>The SecureVoult shield icon appears in your toolbar. Click it to sign in.</Step>
+              </div>
+              <CodeLine>chrome://extensions</CodeLine>
+            </>
+          )}
+          {tab === 'edge' && (
+            <>
+              <p className="text-sm font-medium">Step 2 — Load in Microsoft Edge</p>
+              <div className="space-y-2.5">
+                <Step n={1}>Open <Code>edge://extensions</Code> in your browser address bar.</Step>
+                <Step n={2}>Enable <strong>Developer mode</strong> in the left sidebar.</Step>
+                <Step n={3}>Click <strong>Load unpacked</strong> and select the <strong>extracted folder</strong> (the one containing <Code>manifest.json</Code>).</Step>
+                <Step n={4}>The SecureVoult icon appears in your toolbar.</Step>
+              </div>
+              <CodeLine>edge://extensions</CodeLine>
+            </>
+          )}
+          {tab === 'brave' && (
+            <>
+              <p className="text-sm font-medium">Step 2 — Load in Brave</p>
+              <div className="space-y-2.5">
+                <Step n={1}>Open <Code>brave://extensions</Code> in your browser address bar.</Step>
+                <Step n={2}>Enable <strong>Developer mode</strong> (top-right toggle).</Step>
+                <Step n={3}>Click <strong>Load unpacked</strong> and select the <strong>extracted folder</strong> (the one containing <Code>manifest.json</Code>).</Step>
+                <Step n={4}>Brave is Chromium-based — fully compatible with the Chrome MV3 manifest.</Step>
+              </div>
+              <CodeLine>brave://extensions</CodeLine>
+            </>
+          )}
+          {tab === 'firefox' && (
+            <>
+              <p className="text-sm font-medium">Step 2 — Load in Firefox</p>
+              <div className="space-y-2.5">
+                <Step n={1}>Unzip the package. Firefox needs the <Code>manifest-firefox.json</Code> file renamed to <Code>manifest.json</Code> first.</Step>
+                <Step n={2}>Run the commands below in the unzipped folder, then open <Code>about:debugging</Code>.</Step>
+                <Step n={3}>Click <strong>This Firefox</strong> → <strong>Load Temporary Add-on…</strong></Step>
+                <Step n={4}>Select the <Code>manifest.json</Code> file inside the folder. Note: temporary add-ons are removed on restart.</Step>
+              </div>
+              <CodeLine>copy manifest-firefox.json manifest.json</CodeLine>
+              <CodeLine>about:debugging#/runtime/this-firefox</CodeLine>
+            </>
+          )}
+          {tab === 'safari' && (
+            <>
+              <p className="text-sm font-medium">Step 2 — Convert for Safari (macOS)</p>
+              <div className="space-y-2.5">
+                <Step n={1}>Requires <strong>Xcode 15+</strong> on macOS. Install from the App Store if needed.</Step>
+                <Step n={2}>Run the converter command below from your terminal inside the unzipped folder.</Step>
+                <Step n={3}>Open the generated Xcode project and run it — this sideloads the extension into Safari.</Step>
+                <Step n={4}>In Safari → Preferences → Extensions → enable <strong>SecureVoult</strong>.</Step>
+              </div>
+              <div className="flex items-start gap-2 p-3 bg-yellow-500/8 border border-yellow-500/20 rounded-lg">
+                <Terminal className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-yellow-500/80">Requires a free or paid Apple Developer account to run in Safari.</p>
+              </div>
+              <CodeLine>xcrun safari-web-extension-converter extension-package/ --project-location ./safari-ext --app-name SecureVoult</CodeLine>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Keyboard shortcuts */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+        <p className="text-sm font-semibold">Keyboard shortcuts</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {[
+            { action: 'Autofill password', keys: 'Ctrl+Shift+F', mac: '⌘⇧F' },
+            { action: 'Open vault popup', keys: 'Ctrl+Shift+P', mac: '⌘⇧P' },
+          ].map(s => (
+            <div key={s.action} className="flex items-center justify-between bg-secondary/40 rounded-lg px-3 py-2">
+              <span className="text-sm text-muted-foreground">{s.action}</span>
+              <div className="flex gap-1">
+                <Code>{s.keys}</Code>
+                <Code>{s.mac}</Code>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -357,13 +569,13 @@ export function AdminPanel({ onBackToVault, onViewPublicSite }: AdminPanelProps)
                       <Activity className="w-4 h-4 mt-0.5 text-muted-foreground/50 flex-shrink-0" />
                       <div className="flex-1 min-w-0 space-y-0.5">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium">{act.admin.displayName || act.admin.email}</span>
+                          <span className="text-sm font-medium">{act.admin?.displayName || act.admin?.email || 'Unknown'}</span>
                           <span className={['text-[10px] px-1.5 py-0.5 rounded font-medium', ACTION_COLORS[act.action] ?? 'bg-secondary text-muted-foreground'].join(' ')}>
                             {act.action.replace(/_/g, ' ')}
                           </span>
                         </div>
                         {act.target && (
-                          <p className="text-xs text-muted-foreground">Target: {act.target.displayName || act.target.email}</p>
+                          <p className="text-xs text-muted-foreground">Target: {act.target?.displayName || act.target?.email || 'Unknown'}</p>
                         )}
                         <p className="text-xs text-muted-foreground/50">{new Date(act.timestamp).toLocaleString()} · {act.ipAddress}</p>
                       </div>
@@ -375,51 +587,7 @@ export function AdminPanel({ onBackToVault, onViewPublicSite }: AdminPanelProps)
           )}
 
           {/* Extension */}
-          {section === 'extension' && (
-            <div className="space-y-5">
-              <div>
-                <h2 className="text-lg font-semibold">Browser extension</h2>
-                <p className="text-sm text-muted-foreground">Install and configure the SecureVoult browser extension.</p>
-              </div>
-              <div className="bg-card border border-border rounded-xl p-6 space-y-5">
-                <div className="flex items-start gap-3 p-3 bg-primary/8 border border-primary/15 rounded-lg">
-                  <Info className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-primary/80">The browser extension auto-fills passwords directly in browsers using secure client-side encryption.</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold mb-2">Features</p>
-                  <ul className="space-y-1.5 text-sm text-muted-foreground">
-                    {[
-                      'Auto-detect login forms on websites',
-                      'One-click password filling',
-                      'Secure client-side encryption',
-                      'Context menu integration',
-                      'Built-in password generation',
-                    ].map(f => (
-                      <li key={f} className="flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-primary/50 flex-shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold mb-2">Installation</p>
-                  <ol className="space-y-1.5 text-sm text-muted-foreground list-decimal list-inside">
-                    <li>Open Chrome → <code className="text-xs bg-secondary px-1 py-0.5 rounded">chrome://extensions</code></li>
-                    <li>Enable Developer Mode (toggle top-right)</li>
-                    <li>Click &quot;Load unpacked&quot; → select the <code className="text-xs bg-secondary px-1 py-0.5 rounded">extension-package/</code> folder</li>
-                  </ol>
-                </div>
-                <Button
-                  className="w-full bg-primary hover:bg-primary/90"
-                  onClick={() => toast({ title: 'Extension package', description: 'Load extension-package/ folder in Chrome via chrome://extensions (developer mode).' })}
-                >
-                  <Package className="w-4 h-4 mr-2" />Extension installation guide
-                </Button>
-              </div>
-            </div>
-          )}
+          {section === 'extension' && <ExtensionSection />}
         </main>
       </div>
     </div>

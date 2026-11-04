@@ -116,7 +116,7 @@ For **iOS Safari**, the converted Xcode project also builds a containing iOS app
 
 The extension connects to your SecureVoult account at:
 
-- **Production:** `https://app.securevoult.com`
+- **Production:** `https://app.securevoult.co.uk`
 - **Local dev:** `http://localhost:3000`
 
 All communication uses your Firebase ID token (Bearer). The extension never stores your master password — vault decryption happens locally in the popup.

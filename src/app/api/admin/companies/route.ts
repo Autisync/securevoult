@@ -3,6 +3,11 @@ import connectDB from '@/lib/db-connect';
 import { Company, User, BreachFinding } from '@/lib/models';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { badRequest, conflict, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 // ── GET — list all companies ─────────────────────────────────────────────
 
@@ -10,17 +15,14 @@ export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.admin);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
   if ('error' in adminResult) return adminResult.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const { searchParams } = new URL(request.url);
@@ -110,10 +112,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
@@ -121,27 +120,27 @@ export async function POST(request: NextRequest) {
 
   let body: unknown;
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { name, slug, ownerFirebaseUid, plan } = body as Record<string, string>;
 
   if (!name?.trim() || !slug?.trim() || !ownerFirebaseUid?.trim()) {
-    return NextResponse.json({ error: 'name, slug, and ownerFirebaseUid are required.' }, { status: 400 });
+    return badRequest('name, slug, and ownerFirebaseUid are required.');
   }
 
   // Validate slug format
   if (!/^[a-z0-9-]+$/.test(slug.trim().toLowerCase())) {
-    return NextResponse.json({ error: 'Slug must contain only lowercase letters, numbers, and hyphens.' }, { status: 400 });
+    return badRequest('Slug must contain only lowercase letters, numbers, and hyphens.');
   }
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const existing = await Company.findOne({ slug: slug.trim().toLowerCase() });
   if (existing) {
-    return NextResponse.json({ error: 'A company with this slug already exists.' }, { status: 409 });
+    return conflict('A company with this slug already exists.');
   }
 
   const company = await Company.create({
@@ -160,10 +159,7 @@ export async function PUT(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
@@ -171,22 +167,22 @@ export async function PUT(request: NextRequest) {
 
   let body: unknown;
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { companyId, isActive, plan, note } = body as Record<string, unknown>;
 
   if (!companyId || typeof companyId !== 'string') {
-    return NextResponse.json({ error: 'companyId is required.' }, { status: 400 });
+    return badRequest('companyId is required.');
   }
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const company = await Company.findById(companyId);
   if (!company) {
-    return NextResponse.json({ error: 'Company not found.' }, { status: 404 });
+    return notFound('Company not found.');
   }
 
   if (typeof isActive === 'boolean') company.isActive = isActive;

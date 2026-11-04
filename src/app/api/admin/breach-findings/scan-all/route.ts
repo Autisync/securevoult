@@ -22,22 +22,24 @@ import connectDB from '@/lib/db-connect';
 import { BreachFinding, User } from '@/lib/models';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
   if ('error' in adminResult) return adminResult.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const staleDate = new Date(0); // epoch — forces stale appearance in the UI

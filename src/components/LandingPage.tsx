@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
@@ -232,7 +232,7 @@ const FEATURES = [
 
 const SECURITY_POINTS = [
   'AES-256-GCM encryption " the same standard used by governments and banks',
-  'PBKDF2 key derivation with 100,000 rounds " making brute force attacks infeasible',
+  'Argon2id key derivation (64 MiB of memory per guess), making brute force attacks impractical',
   'Your master password is never transmitted, stored, or logged by any server',
   'All vault data is encrypted before it ever leaves your device',
   'Open architecture " the security model can be audited by anyone',
@@ -316,7 +316,7 @@ const FAQS = [
   },
   {
     q: 'What encryption does SecureVoult use?',
-    a: 'SecureVoult uses AES-256-GCM for encryption and PBKDF2 with 100,000 iterations of SHA-256 for key derivation. These are the same cryptographic standards recommended by NIST and used in enterprise security tools.',
+    a: 'SecureVoult uses AES-256-GCM for encryption and Argon2id (64 MiB, 3 passes) to turn your master password into a key. Argon2id won the Password Hashing Competition and is what OWASP recommends: every guess costs an attacker real memory, which makes GPU cracking slow and expensive.',
   },
   {
     q: 'Can I export my data if I want to leave?',
@@ -396,7 +396,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
         <div className="relative max-w-3xl mx-auto animate-fade-up">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs text-primary font-medium mb-6 animate-pulse-glow">
             <Lock className="w-3 h-3" />
-            End-to-end encrypted · Zero-knowledge
+            End-to-end encrypted Â· Zero-knowledge
           </div>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 leading-tight">
             Passwords you can
@@ -429,7 +429,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
           {[
             { value: 10000, suffix: '+', label: 'Passwords protected' },
             { value: 256,   suffix: '-bit', label: 'AES encryption' },
-            { value: 100,   suffix: 'k', label: 'PBKDF2 iterations' },
+            { value: 64,    suffix: ' MiB', label: 'Argon2id memory per guess' },
           ].map(({ value, suffix, label }) => (
             <div key={label} className="bg-card/50 border border-border/50 rounded-xl py-4 px-3 hover:border-primary/30 hover:bg-card/80 transition-all duration-300">
               <div className="text-2xl font-bold text-foreground">
@@ -599,7 +599,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
               <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">Encryption flow</p>
               {[
                 { step: '1', label: 'You enter your master password', note: 'Never stored or sent anywhere' },
-                { step: '2', label: 'PBKDF2 derives an encryption key', note: '100,000 iterations · SHA-256' },
+                { step: '2', label: 'Argon2id derives an encryption key', note: '64 MiB · 3 passes' },
                 { step: '3', label: 'Vault is encrypted with AES-256-GCM', note: 'Locally, in your browser' },
                 { step: '4', label: 'Ciphertext syncs to server', note: 'Server cannot decrypt it' },
               ].map(({ step, label, note }) => (
@@ -781,7 +781,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── Platforms ── */}
+      {/* -- Platforms -- */}
       <section id="platforms" className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <Reveal className="text-center mb-14">
@@ -804,7 +804,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
                     <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-green-500/15 text-green-400">Live now</span>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-                    The full-featured vault dashboard. Manage, search, organise, and generate passwords — accessible instantly from any browser at <span className="text-primary font-medium">app.securevoult.com</span>. No install required. Zero-knowledge encryption runs entirely in your browser.
+                    The full-featured vault dashboard. Manage, search, organise, and generate passwords — accessible instantly from any browser at <span className="text-primary font-medium">app.securevoult.co.uk</span>. No install required. Zero-knowledge encryption runs entirely in your browser.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 flex-shrink-0">
@@ -870,7 +870,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
                   <div className="mt-4 pt-4 border-t border-border/40">
                     <p className="text-xs text-muted-foreground/50 font-mono mb-3">{tech}</p>
                     <a
-                      href="mailto:waitlist@securevoult.com?subject=Desktop%20App%20Waitlist"
+                      href="mailto:waitlist@securevoult.co.uk?subject=Desktop%20App%20Waitlist"
                       className="w-full h-8 text-xs inline-flex items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all duration-200"
                     >
                       Get notified when it ships
@@ -934,7 +934,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
                   <div className="mt-4 pt-4 border-t border-border/40">
                     <p className="text-xs text-muted-foreground/50 font-mono mb-3">{tech}</p>
                     <a
-                      href="mailto:waitlist@securevoult.com?subject=Mobile%20App%20Waitlist"
+                      href="mailto:waitlist@securevoult.co.uk?subject=Mobile%20App%20Waitlist"
                       className="w-full h-8 text-xs inline-flex items-center justify-center rounded-lg border border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all duration-200"
                     >
                       Get notified when it ships
@@ -1007,7 +1007,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
                 </p>
               </div>
               <a
-                href="mailto:waitlist@securevoult.com?subject=Extension%20Beta%20Feedback"
+                href="mailto:waitlist@securevoult.co.uk?subject=Extension%20Beta%20Feedback"
                 className="h-8 px-4 text-xs flex-shrink-0 inline-flex items-center rounded-lg border border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors whitespace-nowrap"
               >
                 Send beta feedback
@@ -1018,7 +1018,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
       </section>
 
 
-      {/* ── Roadmap ── */}
+      {/* -- Roadmap -- */}
       <section id="roadmap" className="py-16 px-6 bg-[hsl(222_40%_7%)]">
         <div className="max-w-4xl mx-auto">
           <Reveal className="text-center mb-8">
@@ -1054,7 +1054,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── Pricing ── */}
+      {/* -- Pricing -- */}
       <section id="pricing" className="py-20 px-6 bg-[hsl(222_40%_7%)]">
         <div className="max-w-4xl mx-auto text-center">
           <Reveal>
@@ -1187,7 +1187,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── CTA ── */}
+      {/* -- CTA -- */}
       <section className="py-20 px-6 bg-gradient-to-b from-[hsl(222_40%_7%)] to-background">
         <Reveal className="max-w-2xl mx-auto text-center">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center mx-auto mb-6 animate-pulse-glow-violet">
@@ -1207,7 +1207,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
         </Reveal>
       </section>
 
-      {/* ── Trust strip ── */}
+      {/* -- Trust strip -- */}
       <div className="border-t border-border/30 py-6 px-6">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-center">
           <p className="text-xs text-muted-foreground/40 font-medium tracking-wide uppercase">Legal &amp; compliance</p>
@@ -1225,7 +1225,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
         </div>
       </div>
 
-      {/* ── Footer ── */}
+      {/* -- Footer -- */}
       <footer className="border-t border-border/40 py-10 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
@@ -1297,7 +1297,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
         </div>
       </footer>
 
-      {/* ── GDPR Cookie consent banner ── */}
+      {/* -- GDPR Cookie consent banner -- */}
       <CookieConsent />
     </div>
   );

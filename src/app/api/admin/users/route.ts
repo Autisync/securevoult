@@ -3,22 +3,24 @@ import connectDB from '@/lib/db-connect';
 import { User, AdminActivity } from '@/lib/models';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { badRequest, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.admin);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please try again later.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
   if ('error' in adminResult) return adminResult.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const { verifiedUser } = { verifiedUser: { uid: adminResult.adminUid } };
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
     adminFirebaseUid: verifiedUser.uid,
     action: 'vault_accessed',
     details: { page, limit, search, total },
-    ipAddress: request.headers.get('x-forwarded-for') ?? 'unknown',
+    ipAddress: getClientIp(request),
     userAgent: request.headers.get('user-agent') ?? 'unknown',
   }).save();
 
@@ -74,17 +76,14 @@ export async function PUT(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please try again later.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
   if ('error' in adminResult) return adminResult.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const { verifiedUser } = { verifiedUser: { uid: adminResult.adminUid } };
@@ -93,23 +92,23 @@ export async function PUT(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
+    return badRequest('Invalid request body.');
   }
 
   const { firebaseUid, role, isActive } = body;
 
   if (!firebaseUid) {
-    return NextResponse.json({ error: 'firebaseUid is required.' }, { status: 400 });
+    return badRequest('firebaseUid is required.');
   }
 
   const target = await User.findOne({ firebaseUid });
   if (!target) {
-    return NextResponse.json({ error: 'Target user not found.' }, { status: 404 });
+    return notFound('Target user not found.');
   }
 
   if (role !== undefined) {
     if (!['user', 'companyAdmin', 'admin'].includes(role)) {
-      return NextResponse.json({ error: 'role must be "user", "companyAdmin", or "admin".' }, { status: 400 });
+      return badRequest('role must be "user", "companyAdmin", or "admin".');
     }
     target.role = role;
   }
@@ -122,7 +121,7 @@ export async function PUT(request: NextRequest) {
     action: 'user_updated',
     targetFirebaseUid: target.firebaseUid,
     details: { role, isActive },
-    ipAddress: request.headers.get('x-forwarded-for') ?? 'unknown',
+    ipAddress: getClientIp(request),
     userAgent: request.headers.get('user-agent') ?? 'unknown',
   }).save();
 

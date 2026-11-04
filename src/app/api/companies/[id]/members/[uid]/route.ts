@@ -11,8 +11,13 @@ import { User, Company } from '@/lib/models';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements } from '@/lib/entitlements';
+import { badRequest, forbidden, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
 
 type RouteParams = { params: Promise<{ id: string; uid: string }> };
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 /** Resolve and authorise the caller for a specific company. */
 async function authorise(request: NextRequest, companyId: string) {
@@ -26,7 +31,7 @@ async function authorise(request: NextRequest, companyId: string) {
     entitlements.scope === 'company_admin' && entitlements.companyId === companyId;
 
   if (!isGlobalAdmin && !isCompanyAdmin) {
-    return { error: NextResponse.json({ error: 'Forbidden.' }, { status: 403 }) };
+    return { error: forbidden('Forbidden.') };
   }
 
   return { callerUid: user.uid, isGlobalAdmin };
@@ -37,35 +42,35 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultWrite);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const auth = await authorise(request, companyId);
   if ('error' in auth) return auth.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   if (!mongoose.isValidObjectId(companyId)) {
-    return NextResponse.json({ error: 'Invalid company ID.' }, { status: 400 });
+    return badRequest('Invalid company ID.');
   }
 
   const company = await Company.findById(companyId).select('ownerFirebaseUid').lean<{ ownerFirebaseUid: string }>();
-  if (!company) return NextResponse.json({ error: 'Company not found.' }, { status: 404 });
+  if (!company) return notFound('Company not found.');
 
   // Company owner's role cannot be changed via this endpoint
   if (targetUid === company.ownerFirebaseUid) {
-    return NextResponse.json({ error: 'Company owner role cannot be changed here.' }, { status: 400 });
+    return badRequest('Company owner role cannot be changed here.');
   }
 
   let body: { role?: string };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { role } = body;
   if (!role || !['user', 'companyAdmin'].includes(role)) {
-    return NextResponse.json({ error: 'role must be "user" or "companyAdmin".' }, { status: 400 });
+    return badRequest('role must be "user" or "companyAdmin".');
   }
 
   const result = await User.updateOne(
@@ -74,7 +79,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   );
 
   if (result.matchedCount === 0) {
-    return NextResponse.json({ error: 'User not found in this company.' }, { status: 404 });
+    return notFound('User not found in this company.');
   }
 
   return NextResponse.json({ success: true, firebaseUid: targetUid, newRole: role });
@@ -85,29 +90,29 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultWrite);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const auth = await authorise(request, companyId);
   if ('error' in auth) return auth.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   if (!mongoose.isValidObjectId(companyId)) {
-    return NextResponse.json({ error: 'Invalid company ID.' }, { status: 400 });
+    return badRequest('Invalid company ID.');
   }
 
   // Prevent removing the company owner
   const company = await Company.findById(companyId).select('ownerFirebaseUid').lean<{ ownerFirebaseUid: string }>();
-  if (!company) return NextResponse.json({ error: 'Company not found.' }, { status: 404 });
+  if (!company) return notFound('Company not found.');
   if (targetUid === company.ownerFirebaseUid) {
-    return NextResponse.json({ error: 'Company owner cannot be removed. Transfer ownership first.' }, { status: 400 });
+    return badRequest('Company owner cannot be removed. Transfer ownership first.');
   }
 
   // Prevent self-removal (edge case: admin removing themselves)
   if (targetUid === auth.callerUid && !auth.isGlobalAdmin) {
-    return NextResponse.json({ error: 'You cannot remove yourself. Contact another admin.' }, { status: 400 });
+    return badRequest('You cannot remove yourself. Contact another admin.');
   }
 
   const result = await User.updateOne(
@@ -116,7 +121,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   );
 
   if (result.matchedCount === 0) {
-    return NextResponse.json({ error: 'User not found in this company.' }, { status: 404 });
+    return notFound('User not found in this company.');
   }
 
   return NextResponse.json({ success: true, firebaseUid: targetUid, removed: true });

@@ -21,8 +21,13 @@ import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements, planLimitPayload } from '@/lib/entitlements';
 import { logLimitEvent } from '@/lib/limit-logger';
+import { badRequest, conflict, forbidden, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
 
 const INVITE_TTL_DAYS = 7;
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -31,25 +36,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultRead);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   if (!mongoose.isValidObjectId(companyId)) {
-    return NextResponse.json({ error: 'Invalid company ID.' }, { status: 400 });
+    return badRequest('Invalid company ID.');
   }
 
   const entitlements = await resolveEntitlements(user.uid);
   const isGlobalAdmin = entitlements.scope === 'global_admin';
   const isCompanyAdmin = entitlements.scope === 'company_admin' && entitlements.companyId === companyId;
   if (!isGlobalAdmin && !isCompanyAdmin) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    return forbidden('Forbidden.');
   }
 
   const invites = await CompanyInvite.find({
@@ -69,44 +74,44 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.authAction);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   if (!mongoose.isValidObjectId(companyId)) {
-    return NextResponse.json({ error: 'Invalid company ID.' }, { status: 400 });
+    return badRequest('Invalid company ID.');
   }
 
   const entitlements = await resolveEntitlements(user.uid);
   const isGlobalAdmin = entitlements.scope === 'global_admin';
   const isCompanyAdmin = entitlements.scope === 'company_admin' && entitlements.companyId === companyId;
   if (!isGlobalAdmin && !isCompanyAdmin) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    return forbidden('Forbidden.');
   }
 
   let body: { email?: string; role?: string };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { email, role = 'user' } = body;
   if (!email || typeof email !== 'string' || !email.includes('@')) {
-    return NextResponse.json({ error: 'A valid email address is required.' }, { status: 400 });
+    return badRequest('A valid email address is required.');
   }
   if (!['user', 'companyAdmin'].includes(role)) {
-    return NextResponse.json({ error: 'role must be "user" or "companyAdmin".' }, { status: 400 });
+    return badRequest('role must be "user" or "companyAdmin".');
   }
 
   const company = await Company.findById(companyId)
     .select('name plan maxSeats')
     .lean<{ name: string; plan: string; maxSeats: number }>();
-  if (!company) return NextResponse.json({ error: 'Company not found.' }, { status: 404 });
+  if (!company) return notFound('Company not found.');
 
   // Seat limit check (count current members + pending invites)
   const [currentSeats, pendingInvites] = await Promise.all([
@@ -143,7 +148,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Check if this email is already a member
   const existingMember = await User.findOne({ email: normalEmail, companyId });
   if (existingMember) {
-    return NextResponse.json({ error: 'This user is already a member of the company.' }, { status: 409 });
+    return conflict('This user is already a member of the company.');
   }
 
   // Cancel any existing pending invite for this email+company

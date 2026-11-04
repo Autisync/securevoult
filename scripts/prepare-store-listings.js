@@ -50,14 +50,13 @@ PERMISSIONS EXPLAINED
 • activeTab: Detect login forms on the current tab
 • tabs: Navigate to the vault interface when requested
 • contextMenus: Right-click "Fill with SecureVoult" shortcut
-• scripting: Inject autofill into login forms
-• http://*/* https://*/*: Required to detect and fill login forms across all websites
+• https://*/*: Detect and fill login forms on secure websites
 
 SETUP
 Install the extension, click the toolbar icon, and sign in with your SecureVoult account. Your encrypted vault syncs automatically (Pro plan required for cross-device sync).
 
 SOURCE / PRIVACY POLICY
-https://securevoult.com/privacy`;
+https://securevoult.co.uk/privacy`;
 
 // ── Screenshots spec ──────────────────────────────────────────────────────────
 // Chrome: 1280×800 or 640×400 PNG/JPG, up to 5 screenshots
@@ -88,9 +87,9 @@ const STORES = {
     description:       LONG_DESC,
     category:          'Productivity',
     language:          'English (United Kingdom)',
-    homepageUrl:       'https://securevoult.com',
-    supportUrl:        'https://securevoult.com/security',
-    privacyPolicyUrl:  'https://securevoult.com/privacy',
+    homepageUrl:       'https://securevoult.co.uk',
+    supportUrl:        'https://securevoult.co.uk/security',
+    privacyPolicyUrl:  'https://securevoult.co.uk/privacy',
     submitUrl:         'https://chrome.google.com/webstore/devconsole',
     uploadInstructions: [
       '1. Zip the extension-package/ folder:',
@@ -106,8 +105,8 @@ const STORES = {
     notes: [
       'You need a Google developer account ($5 one-time fee).',
       'Manifest version 3 (MV3) is required — our manifest.json already uses MV3.',
-      '"Dangerous" permissions (host_permissions: http://*/* https://*/*) will be reviewed.',
-      'Include a justification in the review notes: autofill requires broad host permissions.',
+      'Broad host permissions (host_permissions: https://*/*) will still receive manual review.',
+      'Include a justification in the review notes: autofill requires access on secure login pages.',
     ],
   },
 
@@ -118,9 +117,9 @@ const STORES = {
     category:          'Productivity',
     language:          'en-GB',
     developerName:     'SecureVoult Ltd',
-    privacyPolicyUrl:  'https://securevoult.com/privacy',
-    supportUrl:        'https://securevoult.com/security',
-    websiteUrl:        'https://securevoult.com',
+    privacyPolicyUrl:  'https://securevoult.co.uk/privacy',
+    supportUrl:        'https://securevoult.co.uk/security',
+    websiteUrl:        'https://securevoult.co.uk',
     submitUrl:         'https://partner.microsoft.com/en-us/dashboard/microsoftedge/overview',
     uploadInstructions: [
       '1. Use the same securevoult-chrome.zip (Edge uses the same MV3 format)',
@@ -142,9 +141,9 @@ const STORES = {
     description:       LONG_DESC,
     categories:        ['security-privacy'],
     tags:              ['password-manager', 'autofill', 'encryption', 'security'],
-    homepageUrl:       'https://securevoult.com',
-    supportUrl:        'https://securevoult.com/security',
-    privacyPolicyUrl:  'https://securevoult.com/privacy',
+    homepageUrl:       'https://securevoult.co.uk',
+    supportUrl:        'https://securevoult.co.uk/security',
+    privacyPolicyUrl:  'https://securevoult.co.uk/privacy',
     submitUrl:         'https://addons.mozilla.org/developers/',
     uploadInstructions: [
       '⚠️  Firefox requires Manifest Version 2 (MV2), not MV3.',
@@ -247,7 +246,7 @@ function main() {
     '',
     '- [ ] Extension loads without errors in Chrome (chrome://extensions → Load unpacked)',
     '- [ ] All screenshots created (see per-store screenshots/README.md)',
-    '- [ ] Privacy policy live at https://securevoult.com/privacy',
+    '- [ ] Privacy policy live at https://securevoult.co.uk/privacy',
     '- [ ] Developer account created for each store',
     '- [ ] Version bumped in extension-package/manifest.json',
   ].join('\n');

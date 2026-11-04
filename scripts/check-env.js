@@ -81,6 +81,23 @@ function report(key, { status }, howToGet) {
   }
 }
 
+function reportOptional(key, { status }, howToGet) {
+  if (status === 'ok') {
+    console.log(`  [ok]  ${key}`);
+    return;
+  }
+  if (status === 'missing') {
+    console.log(`  [optional]  ${key}  -- not set`);
+    if (howToGet) console.log(`       ${howToGet}`);
+    return;
+  }
+  if (status === 'placeholder') {
+    console.log(`  [!] ${key}  -- looks like a placeholder, replace with a real value if you want this optional feature enabled`);
+    if (howToGet) console.log(`       ${howToGet}`);
+    hasWarnings = true;
+  }
+}
+
 // ── Checks ───────────────────────────────────────────────────────────────────
 
 console.log('\n[check-env]  SecureVoult -- Environment Variable Check\n');
@@ -145,13 +162,13 @@ report('STRIPE_PRICE_COMPANY_YEARLY',  get('STRIPE_PRICE_COMPANY_YEARLY'), 'Same
 
 // HaveIBeenPwned
 console.log('\n-- HaveIBeenPwned --');
-report('HIBP_API_KEY', get('HIBP_API_KEY'),
+reportOptional('HIBP_API_KEY', get('HIBP_API_KEY'),
        'https://haveibeenpwned.com/API/Key  (optional -- breach email checks return notConfigured without it)');
 
 // App URL
 console.log('\n-- App URL --');
 report('NEXT_PUBLIC_APP_URL', get('NEXT_PUBLIC_APP_URL'),
-       'Set to http://localhost:3000 for dev, https://app.securevoult.com for production');
+       'Set to http://localhost:3000 for dev, https://app.securevoult.co.uk for production');
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 

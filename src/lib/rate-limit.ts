@@ -1,12 +1,13 @@
 /**
  * Rate limiting — server-side, per-IP sliding window.
  *
- * Current implementation: in-memory (Node.js process).
- * Works correctly for single-process deployments (local dev, single Vercel region).
- *
- * Upgrade path: swap `store` for a Redis/Upstash adapter behind the same
- * `RateLimitStore` interface — no call-site changes needed.
+ * Store selection (automatic, no call-site changes needed):
+ *   - Redis (Upstash)  — when UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN are set.
+ *                        Works correctly across multiple processes / Vercel regions.
+ *   - In-memory        — fallback for local dev / single-process deployments.
  */
+
+import { Redis } from '@upstash/redis';
 
 // ── Store interface ─────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ interface RateLimitStore {
   set(key: string, record: RateLimitRecord, ttlMs: number): Promise<void>;
 }
 
-// ── In-memory store ─────────────────────────────────────────────────────────
+// ── In-memory store (single-process fallback) ───────────────────────────────
 
 class InMemoryStore implements RateLimitStore {
   private map = new Map<string, { record: RateLimitRecord; expiresAt: number }>();
@@ -40,8 +41,39 @@ class InMemoryStore implements RateLimitStore {
   }
 }
 
+// ── Redis store (Upstash — production) ─────────────────────────────────────
+
+class RedisStore implements RateLimitStore {
+  private client: Redis;
+
+  constructor(client: Redis) {
+    this.client = client;
+  }
+
+  async get(key: string): Promise<RateLimitRecord | null> {
+    const raw = await this.client.get<RateLimitRecord>(key);
+    return raw ?? null;
+  }
+
+  async set(key: string, record: RateLimitRecord, ttlMs: number): Promise<void> {
+    // EX is in whole seconds; ceil so we never expire a window too early.
+    await this.client.set(key, record, { ex: Math.ceil(ttlMs / 1000) });
+  }
+}
+
+// ── Auto-select store ───────────────────────────────────────────────────────
+
+function createDefaultStore(): RateLimitStore {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) {
+    return new RedisStore(new Redis({ url, token }));
+  }
+  return new InMemoryStore();
+}
+
 // Singleton store shared across all rate limiter instances in this process.
-const defaultStore = new InMemoryStore();
+const defaultStore: RateLimitStore = createDefaultStore();
 
 // ── Rate limiter ────────────────────────────────────────────────────────────
 

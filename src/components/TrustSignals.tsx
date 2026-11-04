@@ -15,7 +15,7 @@ const SIGNALS = [
   },
   {
     icon: ShieldCheck,
-    title: 'AES-256 + PBKDF2',
+    title: 'AES-256 + Argon2id',
     description: 'Industry-standard algorithms protect every vault entry at rest and in transit.',
   },
   {

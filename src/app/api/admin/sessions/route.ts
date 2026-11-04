@@ -3,6 +3,11 @@ import connectDB from '@/lib/db-connect';
 import { Session, User } from '@/lib/models';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { badRequest, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 // ── GET — list all active sessions (global admin only) ───────────────────
 
@@ -10,17 +15,14 @@ export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.admin);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
   if ('error' in adminResult) return adminResult.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const { searchParams } = new URL(request.url);
@@ -98,10 +100,7 @@ export async function DELETE(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
@@ -109,16 +108,16 @@ export async function DELETE(request: NextRequest) {
 
   let body: unknown;
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { sessionId } = body as Record<string, string>;
   if (!sessionId?.trim()) {
-    return NextResponse.json({ error: 'sessionId is required.' }, { status: 400 });
+    return badRequest('sessionId is required.');
   }
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const result = await Session.findOneAndUpdate(
@@ -128,7 +127,7 @@ export async function DELETE(request: NextRequest) {
   );
 
   if (!result) {
-    return NextResponse.json({ error: 'Session not found.' }, { status: 404 });
+    return notFound('Session not found.');
   }
 
   return NextResponse.json({ success: true, message: 'Session revoked.' });

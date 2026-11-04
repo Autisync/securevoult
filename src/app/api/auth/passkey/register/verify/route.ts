@@ -23,12 +23,17 @@ import {
 } from '@/lib/webauthn';
 import { resolveEntitlements, planLimitPayload } from '@/lib/entitlements';
 import { logLimitEvent } from '@/lib/limit-logger';
+import { badRequest, conflict, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.auth);
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const authResult = await requireAuthenticatedUser(request);
@@ -36,7 +41,7 @@ export async function POST(request: NextRequest) {
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   let body: {
@@ -47,12 +52,12 @@ export async function POST(request: NextRequest) {
     deviceName?: string;
   };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { credentialId, clientDataJSON, attestationObject, transports = [], deviceName = 'Passkey' } = body;
   if (!credentialId || !clientDataJSON || !attestationObject) {
-    return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
+    return badRequest('Missing required fields.');
   }
 
   // Retrieve and consume the pending challenge
@@ -61,7 +66,7 @@ export async function POST(request: NextRequest) {
     type: 'registration',
   });
   if (!challengeDoc) {
-    return NextResponse.json({ error: 'No pending registration challenge found. Please restart.' }, { status: 400 });
+    return badRequest('No pending registration challenge found. Please restart.');
   }
 
   // ── Plan enforcement: passkeys ────────────────────────────────────────────
@@ -131,7 +136,7 @@ export async function POST(request: NextRequest) {
     // Prevent duplicate credential IDs
     const dup = await PasskeyCredential.findOne({ credentialId: result.credentialId });
     if (dup) {
-      return NextResponse.json({ error: 'This passkey is already registered.' }, { status: 409 });
+      return conflict('This passkey is already registered.');
     }
 
     await PasskeyCredential.create({
@@ -152,9 +157,6 @@ export async function POST(request: NextRequest) {
       deviceName,
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Verification failed.' },
-      { status: 400 }
-    );
+    return badRequest(err instanceof Error ? err.message : 'Verification failed.');
   }
 }

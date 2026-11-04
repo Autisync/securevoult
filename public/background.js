@@ -3,8 +3,33 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('SecureVoult extension installed');
 });
 
+function isTrustedSender(sender, request) {
+  if (!sender || sender.id !== chrome.runtime.id) {
+    return false;
+  }
+
+  if (request.action === 'saveLogin') {
+    return !!sender.tab;
+  }
+
+  if (request.action === 'getTabInfo') {
+    return !sender.tab && typeof sender.url === 'string' && sender.url.startsWith(chrome.runtime.getURL(''));
+  }
+
+  if (request.action === 'openPopup') {
+    return !sender.tab;
+  }
+
+  return false;
+}
+
 // ── Message handler ────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (!isTrustedSender(sender, request)) {
+    sendResponse({ error: 'Unauthorized sender' });
+    return false;
+  }
+
   if (request.action === 'getTabInfo') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tab = tabs[0];

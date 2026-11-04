@@ -8,8 +8,9 @@ import { PasswordEntry, VaultItemType } from '@/types/vault';
 import { useVault } from '@/contexts/VaultContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useClipboard } from '@/hooks/useClipboard';
-import { Copy, Edit, Trash2, ExternalLink, Eye, EyeOff, Check, Star, Key, StickyNote, CreditCard, UserCircle, Wifi, Clock } from 'lucide-react';
+import { Copy, Edit, Trash2, ExternalLink, Eye, EyeOff, Check, Star, Key, StickyNote, CreditCard, UserCircle, Wifi, Clock, ShieldCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { parseTotp, totpNow } from '@/lib/totp';
 
 function getFaviconUrl(url: string | undefined): string | null {
   if (!url) return null;
@@ -85,8 +86,8 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
   const maskedPassword = '•'.repeat(Math.min(entry.password?.length ?? 8, 16));
   const entryType: VaultItemType = entry.type ?? 'login';
   const TypeIcon = TYPE_ICONS[entryType];
-  const hasPassword = !!entry.password;
-  const hasUsername = !!entry.username && entryType !== 'note' && entryType !== 'wifi';
+  const hasPassword = !!entry.password && entryType !== 'card';
+  const hasUsername = !!entry.username && entryType !== 'note' && entryType !== 'wifi' && entryType !== 'card';
 
   const gradients = [
     'from-blue-500 to-violet-600',
@@ -97,16 +98,22 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
   ];
   const gradient = gradients[letter.charCodeAt(0) % gradients.length];
 
-  const passwordAgeDays = entry.password
-    ? Math.floor((Date.now() - new Date(entry.updatedAt).getTime()) / (1000 * 60 * 60 * 24))
+  const passwordSince = new Date(entry.passwordHistory?.[0]?.changedAt ?? entry.createdAt);
+  const passwordAgeDays = hasPassword
+    ? Math.floor((Date.now() - passwordSince.getTime()) / (1000 * 60 * 60 * 24))
     : 0;
-  const isStale = entry.password && passwordAgeDays > 90;
+  const isStale = hasPassword && passwordAgeDays > 365;
 
   return (
     <>
       <div className={`group flex items-center gap-4 rounded-xl bg-card border border-border hover:border-border/80 hover:bg-card/80 transition-all ${compact ? 'px-3 py-1.5' : 'px-4 py-3'}`}>
         {/* Favicon / letter avatar with type badge */}
-        <div className="relative flex-shrink-0" onClick={onClick}>
+        <button
+          type="button"
+          className="relative flex-shrink-0"
+          onClick={onClick}
+          aria-label={`Open ${entry.website}`}
+        >
           <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
             {showFavicon ? (
               <img
@@ -122,13 +129,14 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
           <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-background border border-border/80 flex items-center justify-center">
             <TypeIcon className="w-2.5 h-2.5 text-muted-foreground" />
           </div>
-        </div>
+        </button>
 
         {/* Title & username */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={`font-medium truncate ${compact ? 'text-xs' : 'text-sm'}`}>{entry.website}</span>
             {entry.isFavorite && <Star className="w-3 h-3 text-yellow-400 flex-shrink-0 fill-yellow-400" />}
+            {entry.totp && <span className="text-[10px] font-semibold px-1 rounded bg-primary/15 text-primary flex-shrink-0" title="Has 2FA codes">2FA</span>}
             <Badge variant="outline" className="text-xs h-4 px-1.5 flex-shrink-0 hidden sm:flex">{entry.category}</Badge>
           </div>
           {entry.username && entryType !== 'note' && entryType !== 'wifi' && (
@@ -174,7 +182,13 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          {entry.totp && (
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              onClick={async () => { const cfg = parseTotp(entry.totp); if (cfg) copyToClipboard((await totpNow(cfg)).code, '2FA code'); }} title="Copy 2FA code">
+              {copied === '2FA code' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+            </Button>
+          )}
           {hasUsername && (
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
               onClick={() => copyToClipboard(entry.username, 'Username')} title="Copy username">

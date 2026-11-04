@@ -14,16 +14,21 @@ import connectDB from '@/lib/db-connect';
 import { WebAuthnChallenge, PasskeyCredential, User } from '@/lib/models';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { generateChallenge, getRpId } from '@/lib/webauthn';
+import { serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.auth);
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   let body: { email?: string } = {};

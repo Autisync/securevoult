@@ -11,7 +11,7 @@ const sections = [
     title: 'Introduction',
     content: (
       <>
-        <P>SecureVoult Ltd (&quot;SecureVoult&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is committed to protecting your personal data and respecting your privacy. This Privacy Policy explains how we collect, use, store, and share information about you when you use our website (<strong>securevoult.com</strong>), desktop apps, mobile apps, and browser extensions (collectively, the &quot;Services&quot;).</P>
+        <P>SecureVoult Ltd (&quot;SecureVoult&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is committed to protecting your personal data and respecting your privacy. This Privacy Policy explains how we collect, use, store, and share information about you when you use our website (<strong>securevoult.co.uk</strong>), desktop apps, mobile apps, and browser extensions (collectively, the &quot;Services&quot;).</P>
         <P>We are the <strong>data controller</strong> for the personal data described in this policy. Our registered address is SecureVoult Ltd, 20 Finsbury Street, London, EC2Y 9AQ, United Kingdom.</P>
         <InfoBox color="green">
           <strong>Zero-knowledge summary:</strong> Your vault data is encrypted on your device before it ever reaches our servers. We cannot read your passwords, notes, or any vault content. We only hold the metadata required to run the service.
@@ -113,7 +113,7 @@ const sections = [
     content: (
       <>
         <P>Some of our processors operate in the United States. All transfers outside the UK/EEA are protected by UK International Data Transfer Agreements (IDTAs) or EU Standard Contractual Clauses (SCCs) in line with UK GDPR Chapter V.</P>
-        <P>You may request a copy of the safeguards we have in place by emailing <strong>privacy@securevoult.com</strong>.</P>
+        <P>You may request a copy of the safeguards we have in place by emailing <strong>privacy@securevoult.co.uk</strong>.</P>
       </>
     ),
   },
@@ -133,7 +133,7 @@ const sections = [
           <Li><strong>Withdraw consent:</strong> for any consent-based processing at any time</Li>
           <Li><strong>Automated decision-making:</strong> we do not use automated decision-making or profiling that significantly affects you</Li>
         </Ul>
-        <P>To exercise any right, email <strong>privacy@securevoult.com</strong>. We respond within 30 days. If you are unsatisfied, you may lodge a complaint with the <a href="https://ico.org.uk" className="underline underline-offset-2 hover:opacity-80" target="_blank" rel="noopener noreferrer">UK Information Commissioner&apos;s Office (ICO)</a>.</P>
+        <P>To exercise any right, email <strong>privacy@securevoult.co.uk</strong>. We respond within 30 days. If you are unsatisfied, you may lodge a complaint with the <a href="https://ico.org.uk" className="underline underline-offset-2 hover:opacity-80" target="_blank" rel="noopener noreferrer">UK Information Commissioner&apos;s Office (ICO)</a>.</P>
       </>
     ),
   },
@@ -144,7 +144,7 @@ const sections = [
       <>
         <Ul>
           <Li>AES-256-GCM encryption for all vault data, performed client-side</Li>
-          <Li>PBKDF2 (310,000 iterations) or Argon2id key derivation for master passwords</Li>
+          <Li>Argon2id key derivation for master passwords (64 MiB, 3 passes)</Li>
           <Li>TLS 1.3 for all data in transit</Li>
           <Li>MongoDB Atlas encryption at rest (AES-256)</Li>
           <Li>Multi-factor authentication available and recommended</Li>
@@ -174,7 +174,7 @@ const sections = [
     id: 'children',
     title: "Children's Privacy",
     content: (
-      <P>Our Services are not directed to children under the age of 16. We do not knowingly collect personal data from children. If we become aware that a child under 16 has provided us with personal data, we will delete it promptly. Contact us at <strong>privacy@securevoult.com</strong> if you believe this has occurred.</P>
+      <P>Our Services are not directed to children under the age of 16. We do not knowingly collect personal data from children. If we become aware that a child under 16 has provided us with personal data, we will delete it promptly. Contact us at <strong>privacy@securevoult.co.uk</strong> if you believe this has occurred.</P>
     ),
   },
   {
@@ -194,7 +194,7 @@ const sections = [
       <>
         <P>For any privacy-related queries, data subject requests, or to reach our Data Protection Officer:</P>
         <Ul>
-          <Li>Email: privacy@securevoult.com</Li>
+          <Li>Email: privacy@securevoult.co.uk</Li>
           <Li>Post: SecureVoult Ltd, Data Protection Officer, 20 Finsbury Street, London, EC2Y 9AQ</Li>
           <Li>ICO registration number: ZB123456 (illustrative — replace with your actual ICO number)</Li>
         </Ul>

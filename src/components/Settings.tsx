@@ -14,6 +14,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useVaultPreferences } from '@/hooks/useVaultPreferences';
 import { generateRecoveryKit } from '@/lib/recovery-kit';
+import { parseCsv, detectSource, type CsvSource } from '@/lib/importers';
+import { CryptoService } from '@/lib/crypto';
 import {
   User, Shield, Palette, FileDown, FileUp, Info, AlertTriangle,
   Download, Upload, CheckCircle2, Loader2, Lock, Clock, Clipboard,
@@ -33,7 +35,7 @@ interface SettingsProps {
 }
 
 export function Settings({ onClose }: SettingsProps) {
-  const { vault, exportVault, exportVaultCSV, importVault, importFromCSV, lockVault, updateEntry } = useVault();
+  const { vault, exportVault, exportVaultCSV, importVault, importFromCSV, lockVault, updateEntry, changeMasterPassword } = useVault();
   const { user } = useAuth();
   const { toast } = useToast();
   const { prefs, setPref } = useVaultPreferences();
@@ -52,8 +54,33 @@ export function Settings({ onClose }: SettingsProps) {
     file: File;
     // column mapping: field -> header index
     mapping: Record<string, number | null>;
-    step: 'preview' | 'mapping' | 'confirm';
+    step: 'preview' | 'mapping' | 'confirm' | 'known';
+    source: CsvSource;
+    total: number;
   } | null>(null);
+  // Restoring a backup needs the master password it was made with.
+  const [backupFile, setBackupFile] = useState<File | null>(null);
+  const [backupPassword, setBackupPassword] = useState('');
+  // Changing the master password.
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwSaving, setPwSaving] = useState(false);
+  const nextStrength = CryptoService.checkPasswordStrength(pwForm.next);
+  const pwFormReady = !!pwForm.current && pwForm.next.length >= 12 && pwForm.next === pwForm.confirm && pwForm.next !== pwForm.current;
+
+  const handleChangeMasterPassword = async () => {
+    if (!pwFormReady) return;
+    setPwSaving(true);
+    try {
+      await changeMasterPassword(pwForm.current, pwForm.next);
+      setPwForm({ current: '', next: '', confirm: '' });
+      toast({ title: 'Master password changed', description: 'Use the new one on every device from now on.' });
+    } catch (err) {
+      const wrong = err instanceof Error && err.name === 'WrongPasswordError';
+      toast({ title: wrong ? 'Current master password is not right' : 'Could not change it', description: wrong ? undefined : (err instanceof Error ? err.message : ''), variant: 'destructive' });
+    } finally {
+      setPwSaving(false);
+    }
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,19 +136,26 @@ export function Settings({ onClose }: SettingsProps) {
   };
 
   // ── Import JSON ─────────────────────────────────────────────────────────────
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = '';
     if (!file) return;
+    setBackupFile(file);
+    setBackupPassword('');
+  };
+
+  const handleRestoreBackup = async () => {
+    if (!backupFile || !backupPassword) return;
     setImportLoading(true);
     try {
-      const text = await file.text();
-      await importVault(text);
-      toast({ title: 'Vault imported', description: 'Backup restored successfully.' });
+      await importVault(await backupFile.text(), backupPassword);
+      setBackupFile(null);
+      setBackupPassword('');
+      toast({ title: 'Backup restored', description: 'Items not already in your vault were added.' });
     } catch (err) {
-      toast({ title: 'Import failed', description: err instanceof Error ? err.message : 'Invalid file.', variant: 'destructive' });
+      toast({ title: 'Restore failed', description: err instanceof Error ? err.message : 'Invalid file.', variant: 'destructive' });
     } finally {
       setImportLoading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -149,39 +183,13 @@ export function Settings({ onClose }: SettingsProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     const text = await file.text();
-    // Simple RFC-4180 CSV parser
-    const parseCSV = (raw: string): string[][] => {
-      const rows: string[][] = [];
-      let row: string[] = [];
-      let col = '';
-      let inQuotes = false;
-      for (let i = 0; i < raw.length; i++) {
-        const ch = raw[i];
-        const next = raw[i + 1];
-        if (inQuotes) {
-          if (ch === '"' && next === '"') { col += '"'; i++; }
-          else if (ch === '"') { inQuotes = false; }
-          else { col += ch; }
-        } else {
-          if (ch === '"') { inQuotes = true; }
-          else if (ch === ',') { row.push(col); col = ''; }
-          else if (ch === '\n' || ch === '\r') {
-            if (ch === '\r' && next === '\n') i++;
-            row.push(col); col = '';
-            if (row.some(c => c)) rows.push(row);
-            row = [];
-          } else { col += ch; }
-        }
-      }
-      if (col || row.length) { row.push(col); if (row.some(c => c)) rows.push(row); }
-      return rows;
-    };
-    const parsed = parseCSV(text);
+    const parsed = parseCsv(text);
     if (parsed.length < 2) { toast({ title: 'CSV is empty or unreadable', variant: 'destructive' }); return; }
     const headers = parsed[0];
     const previewRows = parsed.slice(1, 6);
     const mapping = autoDetectMapping(headers);
-    setCsvPreview({ rows: previewRows, headers, file, mapping, step: 'mapping' });
+    const source = detectSource(headers);
+    setCsvPreview({ rows: previewRows, headers, file, mapping, step: source === 'CSV' ? 'mapping' : 'known', source, total: parsed.length - 1 });
     if (csvInputRef.current) csvInputRef.current.value = '';
   };
 
@@ -190,8 +198,9 @@ export function Settings({ onClose }: SettingsProps) {
     setImportLoading(true);
     try {
       const text = await csvPreview.file.text();
-      const { imported, skipped } = await importFromCSV(text, csvPreview.mapping);
-      toast({ title: 'CSV imported', description: `${imported} entries added, ${skipped} skipped.` });
+      const { imported, skipped, duplicates, source } = await importFromCSV(text, csvPreview.mapping);
+      const extra = [duplicates && `${duplicates} already in your vault`, skipped && `${skipped} skipped (folders or empty rows)`].filter(Boolean).join(', ');
+      toast({ title: `${imported} item${imported === 1 ? '' : 's'} imported from ${source === 'CSV' ? 'the CSV' : source}`, description: extra || 'Everything is encrypted in your vault now.' });
       setCsvPreview(null);
     } catch (err) {
       toast({ title: 'CSV import failed', description: err instanceof Error ? err.message : '', variant: 'destructive' });
@@ -299,7 +308,7 @@ export function Settings({ onClose }: SettingsProps) {
               {[
                 { label: 'Total entries', value: String(entryCount) },
                 { label: 'Encryption', value: 'AES-256-GCM' },
-                { label: 'Key derivation', value: 'PBKDF2', sub: '100k rounds' },
+                { label: 'Key derivation', value: 'Argon2id', sub: '64 MiB, 3 passes' },
                 { label: 'Architecture', value: 'Zero-knowledge' },
               ].map(({ label, value, sub }) => (
                 <div key={label} className="bg-card border border-border rounded-xl px-4 py-3">
@@ -312,6 +321,32 @@ export function Settings({ onClose }: SettingsProps) {
           </Section>
           <Section title="Master password & recovery">
             <div className="space-y-3">
+              <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Change master password</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Your items stay as they are; only the lock changes. Other devices ask for the new one next time they unlock.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <Input type="password" autoComplete="current-password" placeholder="Current master password" className="h-9 bg-secondary/50"
+                    value={pwForm.current} onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))} />
+                  <Input type="password" autoComplete="new-password" placeholder="New master password (12+ characters)" className="h-9 bg-secondary/50"
+                    value={pwForm.next} onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))} />
+                  <Input type="password" autoComplete="new-password" placeholder="New master password again" className="h-9 bg-secondary/50"
+                    value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} />
+                </div>
+                {pwForm.next && (
+                  <p className="text-xs text-muted-foreground">
+                    Strength: <span className="font-medium capitalize">{nextStrength.strength}</span>
+                    {pwForm.next.length < 12 && ' · use at least 12 characters'}
+                    {pwForm.confirm && pwForm.confirm !== pwForm.next && ' · the two new passwords differ'}
+                  </p>
+                )}
+                <Button size="sm" className="h-8 text-xs" onClick={handleChangeMasterPassword} disabled={!pwFormReady || pwSaving}>
+                  {pwSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />Changing…</> : 'Change master password'}
+                </Button>
+              </div>
               <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-4 space-y-2">
                 <p className="text-sm font-semibold text-amber-400 flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0" />Your master password cannot be recovered
@@ -599,10 +634,26 @@ export function Settings({ onClose }: SettingsProps) {
                     </p>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full h-9" onClick={() => fileInputRef.current?.click()} disabled={importLoading}>
-                  {importLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-                  Import .json backup
-                </Button>
+                {backupFile ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>{backupFile.name}</strong>: enter the master password you had when this backup was made.
+                    </p>
+                    <Input type="password" autoComplete="off" placeholder="Master password for this backup" className="h-9 bg-secondary/50"
+                      value={backupPassword} onChange={e => setBackupPassword(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') void handleRestoreBackup(); }} />
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setBackupFile(null); setBackupPassword(''); }}>Cancel</Button>
+                      <Button size="sm" className="h-8 text-xs" onClick={handleRestoreBackup} disabled={!backupPassword || importLoading}>
+                        {importLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />Restoring…</> : 'Restore backup'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" className="w-full h-9" onClick={() => fileInputRef.current?.click()} disabled={importLoading}>
+                    <Upload className="w-4 h-4 mr-2" />Choose .json backup
+                  </Button>
+                )}
                 <input ref={fileInputRef} type="file" accept=".json" onChange={handleFileSelect} className="hidden" />
               </div>
 
@@ -612,14 +663,37 @@ export function Settings({ onClose }: SettingsProps) {
                     <FileUp className="w-4 h-4 text-blue-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">Import from CSV</p>
+                    <p className="text-sm font-medium">Import from another password manager</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Import from 1Password, Bitwarden, Chrome, or any password manager CSV export.
+                      From NordPass: Settings → Export items → CSV. Logins, notes, cards, identities, folders and extra fields come across.
                     </p>
                   </div>
                 </div>
 
-                {csvPreview && (
+                {csvPreview?.step === 'known' && (
+                  <div className="space-y-3">
+                    <div className="bg-secondary/50 rounded-lg p-3 text-xs space-y-1">
+                      <p className="font-medium text-foreground flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />{csvPreview.source} export recognised
+                      </p>
+                      <p className="text-muted-foreground">
+                        {csvPreview.total} row{csvPreview.total === 1 ? '' : 's'} in <strong>{csvPreview.file.name}</strong>.
+                        Items already in your vault are skipped, so importing twice is safe.
+                      </p>
+                    </div>
+                    <p className="text-xs text-amber-400/90">
+                      After importing, delete the CSV file: it holds your passwords in plain text.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setCsvPreview(null)}>Cancel</Button>
+                      <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90" onClick={handleConfirmCsvImport} disabled={importLoading}>
+                        {importLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />Importing…</> : <><CheckCircle2 className="w-3.5 h-3.5 mr-1" />Import from {csvPreview.source}</>}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {csvPreview && csvPreview.step !== 'known' && (
                   <div className="space-y-4">
                     {/* Step header */}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -743,7 +817,7 @@ export function Settings({ onClose }: SettingsProps) {
                 <input ref={csvInputRef} type="file" accept=".csv,.txt" onChange={handleCsvSelect} className="hidden" />
 
                 <p className="text-xs text-muted-foreground">
-                  Compatible with: 1Password, Bitwarden, LastPass, Dashlane, Chrome, Firefox, Safari, and any standard CSV.
+                  Recognised automatically: NordPass, Bitwarden, 1Password, LastPass, Dashlane, Proton Pass, Chrome, Edge, Firefox. Any other CSV: you choose the columns.
                 </p>
               </div>
             </div>
@@ -941,7 +1015,7 @@ export function Settings({ onClose }: SettingsProps) {
               <div className="divide-y divide-border/50">
                 {[
                   { label: 'Encryption', value: 'AES-256-GCM' },
-                  { label: 'Key derivation', value: 'PBKDF2-SHA-256 · 100k rounds' },
+                  { label: 'Key derivation', value: 'Argon2id · 64 MiB · 3 passes' },
                   { label: 'Architecture', value: 'Zero-knowledge · client-side only' },
                   { label: 'Vault entries', value: String(entryCount) },
                   { label: 'Build', value: 'Next.js 14 · TypeScript · Tailwind CSS' },

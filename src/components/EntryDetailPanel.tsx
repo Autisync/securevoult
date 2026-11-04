@@ -8,6 +8,7 @@ import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicato
 import { PasswordEntry, VaultItemType } from '@/types/vault';
 import { CryptoService } from '@/lib/crypto';
 import { useVault } from '@/contexts/VaultContext';
+import { TotpCode } from '@/components/TotpCode';
 import { useToast } from '@/components/ui/use-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
@@ -45,6 +46,8 @@ interface EntryDetailPanelProps {
 
 export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [showHistory, setShowHistory] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [faviconError, setFaviconError] = useState(false);
   const { copied, copy: clipboardCopy } = useClipboard();
@@ -58,7 +61,15 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
   const TypeIcon = meta.icon;
   const letter = (entry.website || '?')[0].toUpperCase();
   const gradient = GRADIENTS[letter.charCodeAt(0) % GRADIENTS.length];
-  const strength = entry.password ? CryptoService.checkPasswordStrength(entry.password) : null;
+  const strength = entry.password && (type === 'login' || type === 'wifi') ? CryptoService.checkPasswordStrength(entry.password) : null;
+  const passwordSince = new Date(entry.passwordHistory?.[0]?.changedAt ?? entry.createdAt);
+  const toggle = (k: string) => setRevealed(r => ({ ...r, [k]: !r[k] }));
+  // Older cards kept the name and number in the username/password slots.
+  const card = type === 'card' ? (entry.card ?? { holder: entry.username || undefined, number: entry.password || undefined }) : undefined;
+  const identity = type === 'identity' ? (entry.identity ?? { fullName: entry.username || undefined }) : undefined;
+  const plainUser = type === 'card' || type === 'identity' ? '' : entry.username;
+  const plainPassword = type === 'card' ? '' : entry.password;
+  const groupCard = (n?: string) => (n ?? '').replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
 
   const faviconUrl = (() => {
     if (!entry.url) return null;
@@ -117,7 +128,7 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
     <div className="space-y-1.5">
       <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">{label}</p>
       <div className="flex items-center gap-2 bg-secondary/30 rounded-lg px-3 py-2 min-h-[36px]">
-        <span className={`flex-1 text-sm break-all ${secret && !revealed ? 'font-mono tracking-widest text-muted-foreground' : ''}`}>
+        <span className={`flex-1 text-sm break-all whitespace-pre-line ${secret && !revealed ? 'font-mono tracking-widest text-muted-foreground' : ''}`}>
           {secret && !revealed ? '•'.repeat(Math.min(value?.length ?? 0, 16)) : (value || <span className="text-muted-foreground/50 italic">—</span>)}
         </span>
         {action}
@@ -167,12 +178,12 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Username */}
-          {entry.username && (
-            <Field label="Username" value={entry.username} copyLabel="Username" />
+          {plainUser && (
+            <Field label="Username" value={plainUser} copyLabel="Username" />
           )}
 
           {/* Password */}
-          {entry.password && (
+          {plainPassword && (
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">Password</p>
               <div className="flex items-center gap-2 bg-secondary/30 rounded-lg px-3 py-2">
@@ -198,6 +209,49 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
             </div>
           )}
 
+          {/* 2FA code */}
+          {entry.totp && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">2FA code</p>
+              <div className="bg-secondary/30 rounded-lg px-3 py-2">
+                <TotpCode secret={entry.totp} onCopy={(code) => copy(code, '2FA code')} />
+              </div>
+            </div>
+          )}
+
+          {/* Card */}
+          {card && (
+            <>
+              {card.holder && <Field label="Name on card" value={card.holder} copyLabel="Name on card" />}
+              {card.number && <Field label="Card number" value={revealed.number ? groupCard(card.number) : card.number} secret revealed={!!revealed.number} onReveal={() => toggle('number')} copyLabel="Card number" />}
+              <div className="grid grid-cols-2 gap-2">
+                {card.expiry && <Field label="Expiry" value={card.expiry} copyLabel="Expiry" />}
+                {card.cvv && <Field label="Security code" value={card.cvv} secret revealed={!!revealed.cvv} onReveal={() => toggle('cvv')} copyLabel="Security code" />}
+                {card.pin && <Field label="PIN" value={card.pin} secret revealed={!!revealed.pin} onReveal={() => toggle('pin')} copyLabel="PIN" />}
+                {card.postcode && <Field label="Postcode" value={card.postcode} copyLabel="Postcode" />}
+              </div>
+            </>
+          )}
+
+          {/* Identity */}
+          {identity && (
+            <>
+              {([
+                ['fullName', 'Full name'], ['email', 'Email'], ['phone', 'Phone'], ['company', 'Company'],
+                ['birthDate', 'Date of birth'], ['documentNumber', 'Passport / ID number'],
+              ] as const).map(([k, label]) => identity[k] ? <Field key={k} label={label} value={identity[k]!} copyLabel={label} /> : null)}
+              {(identity.address1 || identity.city || identity.postcode || identity.country) && (
+                <Field label="Address" copyLabel="Address"
+                  value={[identity.address1, identity.address2, [identity.city, identity.state].filter(Boolean).join(', '), identity.postcode, identity.country].filter(Boolean).join('\n')} />
+              )}
+            </>
+          )}
+
+          {/* Extra fields */}
+          {entry.fields?.map((f, i) => (
+            <Field key={i} label={f.label || 'Field'} value={f.value} secret={f.hidden} revealed={!!revealed[`f${i}`]} onReveal={f.hidden ? () => toggle(`f${i}`) : undefined} copyLabel={f.label || 'Field'} />
+          ))}
+
           {/* URL */}
           {entry.url && (
             <div className="space-y-1.5">
@@ -211,6 +265,15 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
                   </button>
                 )}
                 <CopyBtn value={entry.url} label="URL" />
+              </div>
+            </div>
+          )}
+
+          {entry.urls && entry.urls.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">Also works on</p>
+              <div className="bg-secondary/30 rounded-lg px-3 py-2 space-y-1">
+                {entry.urls.map(u => <p key={u} className="text-sm text-primary truncate">{u}</p>)}
               </div>
             </div>
           )}
@@ -261,18 +324,30 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
                   <span className="text-muted-foreground">{formatDistanceToNow(new Date(entry.lastUsed), { addSuffix: true })}</span>
                 </div>
               )}
-              {entry.password && (
+              {plainPassword && (
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground/60">Password age</span>
                   <span className={`${
-                    Date.now() - new Date(entry.updatedAt).getTime() > 180 * 24 * 60 * 60 * 1000
-                      ? 'text-red-400' : Date.now() - new Date(entry.updatedAt).getTime() > 90 * 24 * 60 * 60 * 1000
-                      ? 'text-yellow-400' : 'text-green-400'
+                    Date.now() - passwordSince.getTime() > 365 * 24 * 60 * 60 * 1000
+                      ? 'text-yellow-400' : 'text-muted-foreground'
                   }`}>
-                    {formatDistanceToNow(new Date(entry.updatedAt))}
+                    {formatDistanceToNow(passwordSince)}
                   </span>
                 </div>
               )}
+              {entry.passwordHistory && entry.passwordHistory.length > 0 && (
+                <button onClick={() => setShowHistory(v => !v)} className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">
+                  {showHistory ? 'Hide' : 'Show'} {entry.passwordHistory.length} previous password{entry.passwordHistory.length === 1 ? '' : 's'}
+                </button>
+              )}
+              {showHistory && entry.passwordHistory?.map((h, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="flex-1 font-mono break-all text-muted-foreground">{revealed[`h${i}`] ? h.password : '••••••••'}</span>
+                  <span className="text-muted-foreground/60 flex-shrink-0">{format(new Date(h.changedAt), 'd MMM yyyy')}</span>
+                  <button onClick={() => toggle(`h${i}`)} className="text-muted-foreground hover:text-foreground">{revealed[`h${i}`] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</button>
+                  <CopyBtn value={h.password} label={`Old password ${i + 1}`} />
+                </div>
+              ))}
             </div>
           </div>
 

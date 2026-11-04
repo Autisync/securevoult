@@ -73,7 +73,6 @@
         'input[name*="user"]',
         'input[type="text"][placeholder*="email" i]',
         'input[type="text"][placeholder*="user" i]',
-        'input[type="text"]',
       ]);
       if (usernameField) {
         usernameField.focus();

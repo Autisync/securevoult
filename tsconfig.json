@@ -43,6 +43,7 @@
     "src/components/MobileApp.tsx",
     "src/lib/user-management.ts",
     "src/app/tempobook/**",
-    "expo"
+    "expo",
+    "scripts/*.ts"
   ]
 }

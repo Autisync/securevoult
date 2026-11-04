@@ -5,8 +5,8 @@
   "main": "main.js",
   "author": {
     "name": "SecureVoult Ltd",
-    "email": "hello@securevoult.com",
-    "url": "https://securevoult.com"
+    "email": "hello@securevoult.co.uk",
+    "url": "https://securevoult.co.uk"
   },
   "license": "UNLICENSED",
   "private": true,
@@ -91,7 +91,7 @@
       "category":     "Utility",
       "synopsis":     "Zero-knowledge password manager",
       "description":  "SecureVoult — end-to-end encrypted password manager with breach monitoring, team vaults, and cross-platform sync.",
-      "maintainer":   "SecureVoult Ltd <hello@securevoult.com>"
+      "maintainer":   "SecureVoult Ltd <hello@securevoult.co.uk>"
     },
     "deb": {
       "priority":    "optional",

@@ -150,7 +150,7 @@ export function BillingSettings({
               onClick={() =>
                 toast({
                   title: 'Billing portal',
-                  description: 'Stripe billing portal coming soon. Contact support@securevoult.com to manage your subscription.',
+                  description: 'Stripe billing portal coming soon. Contact support@securevoult.co.uk to manage your subscription.',
                 })
               }
             >

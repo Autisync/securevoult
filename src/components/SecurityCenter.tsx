@@ -104,7 +104,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
       if (!entry.url && entry.type !== 'note' && entry.type !== 'wifi' && entry.type !== 'identity') {
         entryIssues.push('No URL — autofill won\'t work');
       }
-      const has2faTag = (entry.tags ?? []).some(t => ['2fa', '2-fa', 'mfa'].includes(t.toLowerCase()));
+      const has2faTag = !!entry.totp || (entry.tags ?? []).some(t => ['2fa', '2-fa', 'mfa'].includes(t.toLowerCase()));
       if (!has2faTag && (entry.type === 'login' || !entry.type) && entry.url) {
         entryIssues.push('No 2FA tag — consider enabling two-factor authentication');
       }
@@ -149,7 +149,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
       { label: 'Reused passwords', key: 'reused', entries: issues.filter(i => i.issues.some(s => s.includes('Reused'))), icon: RefreshCw, color: 'text-orange-400', bg: 'bg-orange-500/15', severity: 'high' as const },
       { label: 'Stale passwords', key: 'stale', entries: issues.filter(i => i.issues.some(s => s.includes('Not updated'))), icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/15', severity: 'medium' as const },
       { label: 'Missing URL', key: 'nourl', entries: issues.filter(i => i.issues.some(s => s.includes('No URL'))), icon: Globe, color: 'text-blue-400', bg: 'bg-blue-500/15', severity: 'low' as const },
-      { label: 'No 2FA tag', key: 'no2fa', entries: issues.filter(i => i.issues.some(s => s.includes('2FA'))), icon: ShieldAlert, color: 'text-violet-400', bg: 'bg-violet-500/15', severity: 'low' as const },
+      { label: 'No 2FA', key: 'no2fa', entries: issues.filter(i => i.issues.some(s => s.includes('2FA'))), icon: ShieldAlert, color: 'text-violet-400', bg: 'bg-violet-500/15', severity: 'low' as const },
     ].filter(g => g.entries.length > 0);
     return groups;
   }, [issues]);
@@ -162,7 +162,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
     reused:  'Generate a unique password for each entry listed below. Using the same password across sites is the #1 cause of account takeovers.',
     stale:   'Update these passwords — especially on banking, email, and social media accounts.',
     nourl:   'Add a URL so the browser extension can auto-fill credentials on the matching site.',
-    no2fa:   'Enable two-factor authentication on the site, then add a "2fa" tag to the entry to track it.',
+    no2fa:   'Turn on two-factor authentication on the site and paste its setup key into the item: SecureVoult then shows the codes.',
   };
 
   return (
@@ -250,7 +250,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
             { icon: RefreshCw,     label: 'Reused',     count: reusedCount, color: 'text-orange-400', bg: 'bg-orange-500/10' },
             { icon: AlertTriangle, label: 'Stale',      count: staleCount,  color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
             { icon: Globe,         label: 'Missing URL',count: noUrlCount,  color: 'text-blue-400',   bg: 'bg-blue-500/10' },
-            { icon: ShieldAlert,   label: 'No 2FA tag', count: no2faCount,  color: 'text-violet-400', bg: 'bg-violet-500/10' },
+            { icon: ShieldAlert,   label: 'No 2FA', count: no2faCount,  color: 'text-violet-400', bg: 'bg-violet-500/10' },
           ].map(({ icon: Icon, label, count, color, bg }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
               <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center flex-shrink-0`}>
@@ -429,7 +429,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
                             }).join(' · ')}
                           </p>
                         </div>
-                        {onEditEntry && key !== 'no2fa' && (
+                        {onEditEntry && (
                           <Button
                             size="sm"
                             variant="ghost"

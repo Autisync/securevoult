@@ -15,18 +15,23 @@ import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements, planLimitPayload } from '@/lib/entitlements';
 import { getBreachHistoryDays } from '@/lib/feature-gates';
+import { badRequest, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultRead);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const entitlements = await resolveEntitlements(user.uid);
@@ -84,14 +89,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultWrite);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const entitlements = await resolveEntitlements(user.uid);
@@ -108,7 +113,7 @@ export async function POST(request: NextRequest) {
 
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { entryId, entryLabel, entryUrl, breachType, severity, hibpCount } = body as {
@@ -121,14 +126,11 @@ export async function POST(request: NextRequest) {
   };
 
   if (!entryId || !breachType || !severity) {
-    return NextResponse.json(
-      { error: 'entryId, breachType, and severity are required.' },
-      { status: 400 }
-    );
+    return badRequest('entryId, breachType, and severity are required.');
   }
 
   if (!['low', 'medium', 'high', 'critical'].includes(severity)) {
-    return NextResponse.json({ error: 'Invalid severity value.' }, { status: 400 });
+    return badRequest('Invalid severity value.');
   }
 
   // Upsert: update existing finding for this entry or create a new one

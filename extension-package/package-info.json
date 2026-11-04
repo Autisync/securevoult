@@ -15,7 +15,6 @@
     "storage": "Store encrypted vault data locally",
     "activeTab": "Access current tab for auto-fill",
     "tabs": "Open vault in new tab",
-    "contextMenus": "Add right-click menu options",
-    "scripting": "Inject auto-fill scripts"
+    "contextMenus": "Add right-click menu options"
   }
 }

@@ -2,14 +2,9 @@ import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-// In production, a missing URI is a hard failure — fail immediately so the
-// error surfaces at startup rather than producing opaque Mongoose errors at
-// request time.  In development we allow a missing URI so the app can be
-// explored without a MongoDB instance, but every route that needs the DB will
-// return a 503 because connectDB() throws below.
-if (!MONGODB_URI && process.env.NODE_ENV === 'production') {
-  throw new Error('[SecureVoult] MONGODB_URI environment variable is required in production.');
-}
+// A missing URI is reported by connectDB() (routes answer 503) and by
+// /api/health, not at import time: `next build` loads every route without
+// the server's secrets.
 
 interface MongooseCache {
   conn: typeof mongoose | null;

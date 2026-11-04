@@ -231,7 +231,9 @@ export function PasswordGenerator() {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Separator</Label>
-                <Select value={phraseOpts.separator} onValueChange={v => updatePhraseOpts({ separator: v })}>
+                <Select
+                  value={phraseOpts.separator === '' ? '__none__' : phraseOpts.separator}
+                  onValueChange={v => updatePhraseOpts({ separator: v === '__none__' ? '' : v })}>
                   <SelectTrigger className="h-9 bg-secondary/50 border-border/60">
                     <SelectValue />
                   </SelectTrigger>
@@ -240,7 +242,7 @@ export function PasswordGenerator() {
                     <SelectItem value=".">Dot  —  word.word</SelectItem>
                     <SelectItem value=" ">Space  —  word word</SelectItem>
                     <SelectItem value="_">Underscore  —  word_word</SelectItem>
-                    <SelectItem value="">None  —  wordword</SelectItem>
+                    <SelectItem value="__none__">None  —  wordword</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -27,16 +27,21 @@ import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements } from '@/lib/entitlements';
 import { logLimitEvent } from '@/lib/limit-logger';
+import { badRequest, tooManyRequests } from '@/lib/api-error';
 import { PLAN_PRICING, PLAN_META, type PlanId, type BillingCycle } from '@/lib/plans';
 import { createCheckoutSession, isStripeConfigured } from '@/lib/stripe';
 
 const VALID_UPGRADE_PLANS: PlanId[] = ['pro', 'company', 'enterprise'];
 const VALID_CYCLES: BillingCycle[] = ['monthly', 'yearly'];
 
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
+
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.auth);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
@@ -48,19 +53,16 @@ export async function POST(request: NextRequest) {
     feature?: string;
   };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { targetPlan, billingCycle = 'monthly', feature = 'general' } = body;
 
   if (!targetPlan || !VALID_UPGRADE_PLANS.includes(targetPlan as PlanId)) {
-    return NextResponse.json(
-      { error: `targetPlan must be one of: ${VALID_UPGRADE_PLANS.join(', ')}.` },
-      { status: 400 }
-    );
+    return badRequest(`targetPlan must be one of: ${VALID_UPGRADE_PLANS.join(', ')}.`);
   }
   if (!VALID_CYCLES.includes(billingCycle as BillingCycle)) {
-    return NextResponse.json({ error: 'billingCycle must be "monthly" or "yearly".' }, { status: 400 });
+    return badRequest('billingCycle must be "monthly" or "yearly".');
   }
 
   const plan = targetPlan as PlanId;
@@ -73,10 +75,7 @@ export async function POST(request: NextRequest) {
   const currentIdx = planOrder.indexOf(entitlements.effectivePlan);
   const targetIdx = planOrder.indexOf(plan);
   if (targetIdx <= currentIdx) {
-    return NextResponse.json(
-      { error: `You are already on ${entitlements.effectivePlan} plan or higher.` },
-      { status: 400 }
-    );
+    return badRequest(`You are already on ${entitlements.effectivePlan} plan or higher.`);
   }
 
   // Log the intent
@@ -156,7 +155,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultRead);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;

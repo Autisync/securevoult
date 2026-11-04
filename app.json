@@ -22,5 +22,10 @@
     "eas": {
       "projectId": "5ba33fee-86af-48ec-8c7b-5f14957ef9f4"
     }
+  },
+  "expo": {
+    "android": {
+      "package": "com.autisyncsorganization.securepasswordmanager"
+    }
   }
 }

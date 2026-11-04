@@ -85,14 +85,27 @@ export class AutoFillService {
     return tab ?? null;
   }
 
-  static async fillCredentials(username: string, password: string): Promise<void> {
+  /**
+   * Fills the login form in the current tab. `site` is the login's own site;
+   * each frame fills only if it is on that site, so an embedded third-party
+   * frame never receives the password.
+   */
+  static async fillCredentials(username: string, password: string, site: string): Promise<boolean> {
     const tab = await this.getCurrentTab();
-    if (!tab?.id) return;
-    await chrome.tabs.sendMessage(tab.id, {
-      action: 'fillCredentials',
-      username,
-      password,
-    });
+    if (!tab?.id) return false;
+    const res = await chrome.tabs.sendMessage(tab.id, { action: 'fillCredentials', username, password, site }).catch(() => null);
+    return !!res?.success;
+  }
+
+  /** Logins seen on pages while the vault was locked (held by the background worker). */
+  static async takePendingLogins(): Promise<{ username: string; password: string; site: string; domain: string; url: string; title: string }[]> {
+    if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) return [];
+    try {
+      const list = await chrome.runtime.sendMessage({ action: 'pending:take' });
+      return Array.isArray(list) ? list.map((p: any) => ({ ...p, domain: p.site })) : [];
+    } catch {
+      return [];
+    }
   }
 
   /** Extract registrable domain (e.g. "github.com") from a full URL. */

@@ -23,9 +23,14 @@ import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements } from '@/lib/entitlements';
 import { handlePlanDowngrade } from '@/lib/downgrade';
-import { PlanId, PLAN_PRICING } from '@/lib/plans';
+import { badRequest, forbidden, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+import { PlanId } from '@/lib/plans';
 
 const PLAN_ORDER: PlanId[] = ['free', 'pro', 'company', 'enterprise'];
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 function isPlanLower(from: PlanId, to: PlanId): boolean {
   return PLAN_ORDER.indexOf(to) < PLAN_ORDER.indexOf(from);
@@ -34,29 +39,29 @@ function isPlanLower(from: PlanId, to: PlanId): boolean {
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   let body: { toPlan?: string; billingCycle?: string; companyId?: string };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { toPlan, billingCycle, companyId } = body;
 
   if (!toPlan || !PLAN_ORDER.includes(toPlan as PlanId)) {
-    return NextResponse.json({ error: 'toPlan must be one of: free, pro, company, enterprise.' }, { status: 400 });
+    return badRequest('toPlan must be one of: free, pro, company, enterprise.');
   }
 
   if (billingCycle && !['monthly', 'yearly'].includes(billingCycle)) {
-    return NextResponse.json({ error: 'billingCycle must be "monthly" or "yearly".' }, { status: 400 });
+    return badRequest('billingCycle must be "monthly" or "yearly".');
   }
 
   const entitlements = await resolveEntitlements(user.uid);
@@ -71,24 +76,21 @@ export async function POST(request: NextRequest) {
 
   // Validate the downgrade direction
   if (!isPlanLower(currentPlan, toPlan as PlanId)) {
-    return NextResponse.json(
-      {
-        error: `Cannot downgrade from "${currentPlan}" to "${toPlan}". For upgrades use POST /api/billing/upgrade-intent.`,
-      },
-      { status: 400 }
+    return badRequest(
+      `Cannot downgrade from "${currentPlan}" to "${toPlan}". For upgrades use POST /api/billing/upgrade-intent.`
     );
   }
 
   // Validate company scope if target is a company
   if (targetCompanyId) {
     if (!isGlobalAdmin && !isCompanyAdmin) {
-      return NextResponse.json({ error: 'Forbidden. Company admin access required.' }, { status: 403 });
+      return forbidden('Forbidden. Company admin access required.');
     }
     if (!mongoose.isValidObjectId(targetCompanyId)) {
-      return NextResponse.json({ error: 'Invalid companyId.' }, { status: 400 });
+      return badRequest('Invalid companyId.');
     }
     if (isCompanyAdmin && entitlements.companyId !== targetCompanyId) {
-      return NextResponse.json({ error: 'Forbidden. You can only downgrade your own company.' }, { status: 403 });
+      return forbidden('Forbidden. You can only downgrade your own company.');
     }
   }
 

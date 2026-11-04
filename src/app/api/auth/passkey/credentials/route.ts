@@ -9,17 +9,22 @@ import connectDB from '@/lib/db-connect';
 import { PasskeyCredential } from '@/lib/models';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { badRequest, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.auth);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const creds = await PasskeyCredential.find({ firebaseUid: authResult.user.uid })
@@ -41,23 +46,23 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.authAction ?? RATE_LIMITS.auth);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   let body: { credentialId?: string };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { credentialId } = body;
   if (!credentialId) {
-    return NextResponse.json({ error: 'credentialId required.' }, { status: 400 });
+    return badRequest('credentialId required.');
   }
 
   const result = await PasskeyCredential.deleteOne({
@@ -66,7 +71,7 @@ export async function DELETE(request: NextRequest) {
   });
 
   if (result.deletedCount === 0) {
-    return NextResponse.json({ error: 'Credential not found.' }, { status: 404 });
+    return notFound('Credential not found.');
   }
 
   return NextResponse.json({ success: true });

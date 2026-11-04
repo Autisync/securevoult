@@ -22,15 +22,17 @@ import connectDB from '@/lib/db-connect';
 import { User, AdminActivity } from '@/lib/models';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { badRequest, forbidden, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
@@ -38,21 +40,21 @@ export async function POST(request: NextRequest) {
 
   let body: unknown;
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { firebaseUid, reason } = body as { firebaseUid?: string; reason?: string };
   if (!firebaseUid?.trim()) {
-    return NextResponse.json({ error: 'firebaseUid is required.' }, { status: 400 });
+    return badRequest('firebaseUid is required.');
   }
 
   // Prevent an admin from resetting another admin's tokens
   if (firebaseUid === adminResult.adminUid) {
-    return NextResponse.json({ error: 'You cannot force-reset your own account.' }, { status: 400 });
+    return badRequest('You cannot force-reset your own account.');
   }
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const targetUser = await User.findOne({ firebaseUid }).select('role email displayName').lean() as {
@@ -60,15 +62,12 @@ export async function POST(request: NextRequest) {
   } | null;
 
   if (!targetUser) {
-    return NextResponse.json({ error: 'Target user not found.' }, { status: 404 });
+    return notFound('Target user not found.');
   }
 
   // Prevent resetting another global admin's tokens (privilege escalation guard)
   if (targetUser.role === 'admin') {
-    return NextResponse.json(
-      { error: 'Cannot force-reset another global admin account.' },
-      { status: 403 }
-    );
+    return forbidden('Cannot force-reset another global admin account.');
   }
 
   // Ensure Firebase Admin is initialised

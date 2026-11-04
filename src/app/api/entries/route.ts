@@ -12,6 +12,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
+import { apiError } from '@/lib/api-error';
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuthenticatedUser(request);
@@ -19,10 +20,7 @@ export async function GET(request: NextRequest) {
 
   // Zero-knowledge architecture: entries are stored only as an encrypted blob.
   // Client-side decryption handles search/filter after fetching from /api/vault.
-  return NextResponse.json(
-    { error: 'Use GET /api/vault to retrieve the encrypted vault for client-side decryption. Individual entries are not stored in plaintext on the server.' },
-    { status: 303, headers: { Location: '/api/vault' } },
-  );
+  return apiError(303, 'not_implemented', 'Use GET /api/vault to retrieve the encrypted vault for client-side decryption. Individual entries are not stored in plaintext on the server.', { redirectTo: '/api/vault' });
 }
 
 export async function POST(request: NextRequest) {
@@ -31,8 +29,5 @@ export async function POST(request: NextRequest) {
 
   // Individual entry creation is handled by saving the full encrypted vault.
   // Use POST /api/vault to persist the encrypted blob.
-  return NextResponse.json(
-    { error: 'Use POST /api/vault to save the full encrypted vault. Individual entry writes are not supported.' },
-    { status: 303, headers: { Location: '/api/vault' } },
-  );
+  return apiError(303, 'not_implemented', 'Use POST /api/vault to save the full encrypted vault. Individual entry writes are not supported.', { redirectTo: '/api/vault' });
 }

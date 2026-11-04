@@ -21,7 +21,7 @@ let tray       = null;
 // ── Allowed navigation origins ────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   `http://localhost:${PORT}`,
-  'https://app.securevoult.com',
+  'https://app.securevoult.co.uk',
 ];
 
 function createWindow() {
@@ -153,8 +153,8 @@ function buildMenu() {
       ...(isMac ? [{ role: 'zoom' }, { type: 'separator' }, { role: 'front' }] : [{ role: 'close' }]),
     ]},
     { label: 'Help', submenu: [
-      { label: 'SecureVoult on the web', click: () => shell.openExternal('https://securevoult.com') },
-      { label: 'Security disclosure',    click: () => shell.openExternal('https://securevoult.com/security') },
+      { label: 'SecureVoult on the web', click: () => shell.openExternal('https://securevoult.co.uk') },
+      { label: 'Security disclosure',    click: () => shell.openExternal('https://securevoult.co.uk/security') },
     ]},
   ];
 

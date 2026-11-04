@@ -21,77 +21,73 @@ import { CompanyInvite, Company, User } from '@/lib/models';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { logLimitEvent } from '@/lib/limit-logger';
+import { apiError, badRequest, conflict, forbidden, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.auth);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   let body: { token?: string };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { token } = body;
   if (!token || typeof token !== 'string' || token.length !== 64) {
-    return NextResponse.json({ error: 'Invalid or missing invite token.' }, { status: 400 });
+    return badRequest('Invalid or missing invite token.');
   }
 
   // Find the invite — use constant-time comparison via DB lookup (no timing oracle)
   const invite = await CompanyInvite.findOne({ token });
   if (!invite) {
-    return NextResponse.json({ error: 'Invite not found or already used.' }, { status: 404 });
+    return notFound('Invite not found or already used.');
   }
 
   if (invite.status !== 'pending') {
-    return NextResponse.json(
-      { error: `This invite has already been ${invite.status}.` },
-      { status: 410 }
-    );
+    return apiError(410, 'invite_inactive', `This invite has already been ${invite.status}.`);
   }
 
   if (invite.expiresAt < new Date()) {
     await CompanyInvite.updateOne({ _id: invite._id }, { $set: { status: 'expired' } });
-    return NextResponse.json({ error: 'This invite has expired.' }, { status: 410 });
+    return apiError(410, 'invite_expired', 'This invite has expired.');
   }
 
   // Email on the invite must match the authenticated user
   if (invite.email !== user.email.toLowerCase().trim()) {
-    return NextResponse.json(
-      { error: 'This invite is for a different email address.' },
-      { status: 403 }
-    );
+    return forbidden('This invite is for a different email address.');
   }
 
   // Load the user record
   const dbUser = await User.findOne({ firebaseUid: user.uid });
   if (!dbUser) {
-    return NextResponse.json({ error: 'User account not found.' }, { status: 404 });
+    return notFound('User account not found.');
   }
 
   if (dbUser.companyId) {
     if (String(dbUser.companyId) === String(invite.companyId)) {
-      return NextResponse.json({ error: 'You are already a member of this company.' }, { status: 409 });
+      return conflict('You are already a member of this company.');
     }
-    return NextResponse.json(
-      { error: 'You already belong to another company. Leave that company first.' },
-      { status: 409 }
-    );
+    return conflict('You already belong to another company. Leave that company first.');
   }
 
   const company = await Company.findById(invite.companyId)
     .select('name plan maxSeats')
     .lean<{ name: string; plan: string; maxSeats: number }>();
   if (!company) {
-    return NextResponse.json({ error: 'Company no longer exists.' }, { status: 404 });
+    return notFound('Company no longer exists.');
   }
 
   // Final seat check at redemption time
@@ -107,10 +103,7 @@ export async function POST(request: NextRequest) {
       allowedLimit: company.maxSeats,
       ipAddress: ip,
     });
-    return NextResponse.json(
-      { error: 'This company has reached its seat limit. Contact the company admin.' },
-      { status: 422 }
-    );
+    return apiError(422, 'limit_reached', 'This company has reached its seat limit. Contact the company admin.');
   }
 
   // Atomic: join the company + mark invite accepted

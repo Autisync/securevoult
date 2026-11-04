@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80" width="400" height="80">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+  </defs>
+  <!-- Icon mark (40x40 within the 80-tall viewport, centered vertically) -->
+  <!-- Shield -->
+  <path d="M20 7 L49 16 L49 38 C49 53 40 64 20 71 C0 64 -9 53 -9 38 L-9 16 Z"
+        transform="translate(20,4) scale(0.625)"
+        fill="none" stroke="url(#g)" stroke-width="7" stroke-linejoin="round"/>
+  <!-- V -->
+  <path d="M10 25 L20 46 L30 25"
+        transform="translate(20,4) scale(0.625)"
+        fill="none" stroke="url(#g)" stroke-width="5.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Wordmark -->
+  <text x="60" y="52" font-family="-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif"
+        font-weight="700" font-size="36" fill="#f1f5f9" letter-spacing="-0.5">
+    Secure
+  </text>
+  <text x="60" y="52" font-family="-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif"
+        font-weight="700" font-size="36" fill="url(#g)" letter-spacing="-0.5"
+        dx="152">
+    Voult
+  </text>
+</svg>

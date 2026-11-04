@@ -26,6 +26,11 @@ function storeSessionId(id: string): void {
   sessionStorage.setItem(SESSION_ID_KEY, id);
 }
 
+/** Resolves once Firebase has restored any saved sign-in. */
+export function authReady(): Promise<void> {
+  return auth.authStateReady();
+}
+
 export class AuthService {
   private static baseUrl =
     typeof window !== 'undefined' ? window.location.origin : '';
@@ -43,7 +48,8 @@ export class AuthService {
   }
 
   // Sync verified Firebase user identity to MongoDB.
-  private static async syncUserToMongoDB(firebaseUser: FirebaseUser): Promise<void> {
+  // Returns the role assigned in MongoDB (or undefined on error).
+  private static async syncUserToMongoDB(firebaseUser: FirebaseUser): Promise<{ role?: string }> {
     try {
       const idToken = await firebaseUser.getIdToken();
       const existingSessionId = getStoredSessionId();
@@ -64,10 +70,12 @@ export class AuthService {
       if (res.ok) {
         const data = await res.json();
         if (data.sessionId) storeSessionId(data.sessionId);
+        return { role: data.user?.role };
       }
     } catch (error) {
       console.error('[AuthService] sync-user failed:', error);
     }
+    return {};
   }
 
   static async signUp(data: SignUpData): Promise<User> {
@@ -81,8 +89,8 @@ export class AuthService {
       await updateProfile(userCredential.user, { displayName: data.displayName });
     }
 
-    await this.syncUserToMongoDB(userCredential.user);
-    return this.convertFirebaseUser(userCredential.user);
+    const { role } = await this.syncUserToMongoDB(userCredential.user);
+    return { ...this.convertFirebaseUser(userCredential.user), ...(role ? { role: role as User['role'] } : {}) };
   }
 
   static async signIn(data: SignInData): Promise<User> {
@@ -91,14 +99,14 @@ export class AuthService {
       data.email,
       data.password
     );
-    await this.syncUserToMongoDB(userCredential.user);
-    return this.convertFirebaseUser(userCredential.user);
+    const { role } = await this.syncUserToMongoDB(userCredential.user);
+    return { ...this.convertFirebaseUser(userCredential.user), ...(role ? { role: role as User['role'] } : {}) };
   }
 
   static async signInWithGoogle(): Promise<User> {
     const result = await signInWithPopup(auth, googleProvider);
-    await this.syncUserToMongoDB(result.user);
-    return this.convertFirebaseUser(result.user);
+    const { role } = await this.syncUserToMongoDB(result.user);
+    return { ...this.convertFirebaseUser(result.user), ...(role ? { role: role as User['role'] } : {}) };
   }
 
   static async signOut(): Promise<void> {
@@ -112,13 +120,23 @@ export class AuthService {
   static onAuthStateChanged(callback: (user: User | null) => void) {
     return onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // Best-effort sync; errors are non-fatal
-        this.syncUserToMongoDB(firebaseUser).catch(() => {});
-        callback(this.convertFirebaseUser(firebaseUser));
+        // Sync to MongoDB and include role in returned user
+        this.syncUserToMongoDB(firebaseUser)
+          .then(({ role }) => {
+            callback({ ...this.convertFirebaseUser(firebaseUser), ...(role ? { role: role as User['role'] } : {}) });
+          })
+          .catch(() => {
+            callback(this.convertFirebaseUser(firebaseUser));
+          });
       } else {
         callback(null);
       }
     });
+  }
+
+  /** Firebase uid of whoever is signed in on this device, or null. */
+  static currentUid(): string | null {
+    return auth.currentUser?.uid ?? null;
   }
 
   static async getIdToken(): Promise<string | null> {

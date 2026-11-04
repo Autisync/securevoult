@@ -3,22 +3,24 @@ import connectDB from '@/lib/db-connect';
 import { Incident } from '@/lib/models';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { badRequest, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.admin);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
   if ('error' in adminResult) return adminResult.error;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const { searchParams } = new URL(request.url);
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
@@ -84,16 +86,16 @@ export async function POST(request: NextRequest) {
 
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 });
+    return badRequest('Invalid JSON.');
   }
 
   const { title, category, severity, description, affectedUserEmail, affectedUserUid } = body as Record<string, string>;
   if (!title || !category) {
-    return NextResponse.json({ error: 'title and category are required.' }, { status: 400 });
+    return badRequest('title and category are required.');
   }
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const incident = await Incident.create({
@@ -120,7 +122,7 @@ export async function PUT(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(request);
@@ -128,20 +130,20 @@ export async function PUT(request: NextRequest) {
 
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 });
+    return badRequest('Invalid JSON.');
   }
 
   const { incidentId, status, note, assignedToUid } = body as Record<string, string>;
   if (!incidentId) {
-    return NextResponse.json({ error: 'incidentId is required.' }, { status: 400 });
+    return badRequest('incidentId is required.');
   }
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const incident = await Incident.findById(incidentId);
-  if (!incident) return NextResponse.json({ error: 'Incident not found.' }, { status: 404 });
+  if (!incident) return notFound('Incident not found.');
 
   const update: Record<string, unknown> = {};
   const timelineEntry = {

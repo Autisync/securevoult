@@ -1,12 +1,12 @@
 {
   "name": "SecureVoult",
   "summary": "Zero-knowledge password manager with autofill and breach monitoring.",
-  "description": "SecureVoult is a zero-knowledge, AES-256 encrypted password manager with browser autofill.\n\nFEATURES\n• Autofill login credentials on any website — one click or keyboard shortcut\n• Save new login prompts appear automatically when you log in\n• Zero-knowledge encryption: your master password never leaves your device\n• AES-256 + PBKDF2 vault encryption (100,000 rounds)\n• Breach monitoring: checks passwords against HaveIBeenPwned without revealing them\n• Secure clipboard copy with configurable auto-clear timeout\n• Works with Chrome, Edge, Brave, and Opera\n\nPRIVACY\nSecureVoult cannot read your passwords. Your vault is encrypted locally before it ever reaches our servers. We use k-anonymity (HIBP range API) for breach checks — we never send your actual password hashes to any external service.\n\nPERMISSIONS EXPLAINED\n• storage: Save your encrypted vault locally\n• activeTab: Detect login forms on the current tab\n• tabs: Navigate to the vault interface when requested\n• contextMenus: Right-click \"Fill with SecureVoult\" shortcut\n• scripting: Inject autofill into login forms\n• http://*/* https://*/*: Required to detect and fill login forms across all websites\n\nSETUP\nInstall the extension, click the toolbar icon, and sign in with your SecureVoult account. Your encrypted vault syncs automatically (Pro plan required for cross-device sync).\n\nSOURCE / PRIVACY POLICY\nhttps://securevoult.com/privacy",
+  "description": "SecureVoult is a zero-knowledge, AES-256 encrypted password manager with browser autofill.\n\nFEATURES\n• Autofill login credentials on any website — one click or keyboard shortcut\n• Save new login prompts appear automatically when you log in\n• Zero-knowledge encryption: your master password never leaves your device\n• AES-256 + PBKDF2 vault encryption (100,000 rounds)\n• Breach monitoring: checks passwords against HaveIBeenPwned without revealing them\n• Secure clipboard copy with configurable auto-clear timeout\n• Works with Chrome, Edge, Brave, and Opera\n\nPRIVACY\nSecureVoult cannot read your passwords. Your vault is encrypted locally before it ever reaches our servers. We use k-anonymity (HIBP range API) for breach checks — we never send your actual password hashes to any external service.\n\nPERMISSIONS EXPLAINED\n• storage: Save your encrypted vault locally\n• activeTab: Detect login forms on the current tab\n• tabs: Navigate to the vault interface when requested\n• contextMenus: Right-click \"Fill with SecureVoult\" shortcut\n• https://*/*: Detect and fill login forms on secure websites\n\nSETUP\nInstall the extension, click the toolbar icon, and sign in with your SecureVoult account. Your encrypted vault syncs automatically (Pro plan required for cross-device sync).\n\nSOURCE / PRIVACY POLICY\nhttps://securevoult.co.uk/privacy",
   "category": "Productivity",
   "language": "English (United Kingdom)",
-  "homepageUrl": "https://securevoult.com",
-  "supportUrl": "https://securevoult.com/security",
-  "privacyPolicyUrl": "https://securevoult.com/privacy",
+  "homepageUrl": "https://securevoult.co.uk",
+  "supportUrl": "https://securevoult.co.uk/security",
+  "privacyPolicyUrl": "https://securevoult.co.uk/privacy",
   "submitUrl": "https://chrome.google.com/webstore/devconsole",
   "uploadInstructions": [
     "1. Zip the extension-package/ folder:",
@@ -22,7 +22,7 @@
   "notes": [
     "You need a Google developer account ($5 one-time fee).",
     "Manifest version 3 (MV3) is required — our manifest.json already uses MV3.",
-    "\"Dangerous\" permissions (host_permissions: http://*/* https://*/*) will be reviewed.",
-    "Include a justification in the review notes: autofill requires broad host permissions."
+    "Broad host permissions (host_permissions: https://*/*) will still receive manual review.",
+    "Include a justification in the review notes: autofill requires access on secure login pages."
   ]
 }

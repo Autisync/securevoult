@@ -8,10 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
-import { PasswordEntry, VaultItemType } from '@/types/vault';
+import { PasswordEntry, VaultItemType, CardDetails, IdentityDetails, CustomField } from '@/types/vault';
+import { parseTotp } from '@/lib/totp';
 import { CryptoService } from '@/lib/crypto';
 import { useVault } from '@/contexts/VaultContext';
-import { Eye, EyeOff, RefreshCw, Copy, Check, Loader2, Key, StickyNote, CreditCard, UserCircle, Wifi, AlertTriangle, Star } from 'lucide-react';
+import { Eye, EyeOff, RefreshCw, Copy, Check, Loader2, Key, StickyNote, CreditCard, UserCircle, Wifi, AlertTriangle, Star, Plus, Trash2, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { getVaultPreference } from '@/hooks/useVaultPreferences';
 
@@ -75,12 +76,12 @@ const TYPE_CONFIGS: Record<VaultItemType, TypeConfig> = {
     label: 'Payment card',
     websiteLabel: 'Card name',
     websitePlaceholder: 'Visa Debit, Mastercard…',
-    usernameLabel: 'Cardholder name',
-    usernamePlaceholder: 'Full name on card',
-    passwordLabel: 'Card number',
+    usernameLabel: '',
+    usernamePlaceholder: '',
+    passwordLabel: '',
     showUrl: false,
-    showUsername: true,
-    showPassword: true,
+    showUsername: false,
+    showPassword: false,
     canGenerate: false,
     passwordRequired: false,
     usernameRequired: false,
@@ -90,11 +91,11 @@ const TYPE_CONFIGS: Record<VaultItemType, TypeConfig> = {
     label: 'Identity',
     websiteLabel: 'Identity name',
     websitePlaceholder: 'Personal, Work…',
-    usernameLabel: 'Full name',
-    usernamePlaceholder: 'Your full name',
+    usernameLabel: '',
+    usernamePlaceholder: '',
     passwordLabel: '',
-    showUrl: true,
-    showUsername: true,
+    showUrl: false,
+    showUsername: false,
     showPassword: false,
     canGenerate: false,
     passwordRequired: false,
@@ -121,8 +122,40 @@ const ITEM_TYPES: VaultItemType[] = ['login', 'note', 'card', 'identity', 'wifi'
 
 const emptyForm = () => ({
   type: (getVaultPreference('defaultEntryType') ?? 'login') as VaultItemType,
-  website: '', url: '', username: '', password: '', notes: '', category: 'Other', tags: '', isFavorite: false,
+  website: '', url: '', urls: '', username: '', password: '', totp: '', notes: '', category: 'Other', tags: '', isFavorite: false,
+  card: {} as CardDetails,
+  identity: {} as IdentityDetails,
+  fields: [] as CustomField[],
 });
+
+const CARD_FIELDS: { key: keyof CardDetails; label: string; placeholder: string; secret?: boolean; half?: boolean; mono?: boolean }[] = [
+  { key: 'holder', label: 'Name on card', placeholder: 'Full name' },
+  { key: 'number', label: 'Card number', placeholder: '1234 5678 9012 3456', secret: true, mono: true },
+  { key: 'expiry', label: 'Expiry', placeholder: 'MM/YY', half: true, mono: true },
+  { key: 'cvv', label: 'Security code', placeholder: 'CVV', secret: true, half: true, mono: true },
+  { key: 'pin', label: 'PIN', placeholder: 'Optional', secret: true, half: true, mono: true },
+  { key: 'postcode', label: 'Billing postcode', placeholder: 'Optional', half: true },
+];
+
+const IDENTITY_FIELDS: { key: keyof IdentityDetails; label: string; placeholder: string; half?: boolean }[] = [
+  { key: 'fullName', label: 'Full name', placeholder: 'As on documents' },
+  { key: 'email', label: 'Email', placeholder: 'name@example.com', half: true },
+  { key: 'phone', label: 'Phone', placeholder: '+44…', half: true },
+  { key: 'address1', label: 'Address', placeholder: 'Street and number' },
+  { key: 'address2', label: 'Address line 2', placeholder: 'Optional' },
+  { key: 'city', label: 'City', placeholder: '', half: true },
+  { key: 'postcode', label: 'Postcode', placeholder: '', half: true },
+  { key: 'state', label: 'County / province', placeholder: '', half: true },
+  { key: 'country', label: 'Country', placeholder: '', half: true },
+  { key: 'company', label: 'Company', placeholder: 'Optional', half: true },
+  { key: 'birthDate', label: 'Date of birth', placeholder: 'DD/MM/YYYY', half: true },
+  { key: 'documentNumber', label: 'Passport / ID number', placeholder: 'Optional' },
+];
+
+const clean = <T extends object>(o: T): T | undefined => {
+  const entries = Object.entries(o).filter(([, v]) => typeof v === 'string' ? v.trim() !== '' : v != null);
+  return entries.length ? (Object.fromEntries(entries.map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])) as T) : undefined;
+};
 
 export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
   const [formData, setFormData] = useState(() => emptyForm());
@@ -153,12 +186,19 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
           type: entry.type ?? 'login',
           website: entry.website,
           url: entry.url || '',
+          urls: (entry.urls ?? []).join('\n'),
           username: entry.username,
           password: entry.password,
+          totp: entry.totp ?? '',
           notes: entry.notes || '',
           category: entry.category,
           tags: (entry.tags ?? []).join(', '),
           isFavorite: entry.isFavorite ?? false,
+          // Cards and identities saved before these sections existed kept the
+          // name/number in the username/password slots.
+          card: entry.card ?? (entry.type === 'card' ? { holder: entry.username || undefined, number: entry.password || undefined } : {}),
+          identity: entry.identity ?? (entry.type === 'identity' ? { fullName: entry.username || undefined } : {}),
+          fields: entry.fields ?? [],
         });
       } else {
         setFormData(emptyForm());
@@ -177,6 +217,8 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
 
   // Inline validation
   const errors: Record<string, string> = {};
+  const totpInvalid = !!formData.totp.trim() && !parseTotp(formData.totp);
+  if (totpInvalid) errors.totp = 'Paste the setup key or the otpauth:// link from the site';
   if (touched.website && !formData.website.trim()) errors.website = `${cfg.websiteLabel} is required`;
   if (touched.username && cfg.usernameRequired && !formData.username.trim()) errors.username = `${cfg.usernameLabel} is required`;
   if (touched.password && cfg.passwordRequired && !formData.password.trim()) errors.password = `${cfg.passwordLabel} is required`;
@@ -196,15 +238,24 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
     if (!formData.website.trim()) return;
     if (cfg.usernameRequired && !formData.username.trim()) return;
     if (cfg.passwordRequired && !formData.password.trim()) return;
+    if (totpInvalid) return;
     setIsLoading(true);
     try {
       const tags = formData.tags.split(',').map(t => t.trim()).filter(Boolean);
+      const t = formData.type;
+      const urls = formData.urls.split(/[\n,]/).map(u => u.trim()).filter(Boolean);
+      const fields = formData.fields.filter(f => f.label.trim() || f.value.trim());
       const payload = {
-        type: formData.type,
+        type: t,
         website: formData.website,
-        url: formData.url || undefined,
-        username: formData.username,
-        password: formData.password,
+        url: cfg.showUrl ? formData.url || undefined : undefined,
+        urls: t === 'login' && urls.length ? urls : undefined,
+        username: cfg.showUsername ? formData.username : '',
+        password: cfg.showPassword ? formData.password : '',
+        totp: t === 'login' && formData.totp.trim() ? formData.totp.trim() : undefined,
+        card: t === 'card' ? clean(formData.card) : undefined,
+        identity: t === 'identity' ? clean(formData.identity) : undefined,
+        fields: fields.length ? fields : undefined,
         notes: formData.notes || undefined,
         category: formData.category,
         tags: tags.length > 0 ? tags : undefined,
@@ -248,14 +299,14 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden border-border bg-[hsl(222_40%_8%)]">
+      <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden border-border bg-[hsl(222_40%_8%)] max-h-[92vh] flex flex-col">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <DialogTitle className="text-lg font-semibold">
             {isEditing ? 'Edit entry' : 'Add new entry'}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 overflow-y-auto">
           {/* Type selector */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Item type</Label>
@@ -401,6 +452,88 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
               )}
             </div>
           )}
+
+          {/* 2FA code */}
+          {formData.type === 'login' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="ef-totp" className="text-sm font-medium flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />2FA setup key
+                <span className="text-muted-foreground text-xs font-normal">(optional)</span>
+              </Label>
+              <Input id="ef-totp" value={formData.totp} onChange={set('totp')} placeholder="Setup key or otpauth:// link"
+                className={`h-10 bg-secondary/50 border-border/60 focus:border-primary font-mono text-sm ${errors.totp ? 'border-destructive' : ''}`}
+                autoComplete="off" spellCheck={false} />
+              {errors.totp
+                ? <p className="text-xs text-destructive">{errors.totp}</p>
+                : <p className="text-xs text-muted-foreground">When the site shows a QR code, choose “can’t scan it?” to see the key. SecureVoult then shows the 6-digit codes.</p>}
+            </div>
+          )}
+
+          {formData.type === 'login' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="ef-urls" className="text-sm font-medium">Also works on <span className="text-muted-foreground text-xs font-normal">(optional, one address per line)</span></Label>
+              <Textarea id="ef-urls" value={formData.urls} onChange={set('urls')} rows={formData.urls ? 2 : 1} placeholder="https://other-site.com"
+                className="bg-secondary/50 border-border/60 focus:border-primary text-sm resize-none" />
+            </div>
+          )}
+
+          {formData.type === 'card' && (
+            <div className="grid grid-cols-2 gap-3">
+              {CARD_FIELDS.map(f => (
+                <div key={f.key} className={`space-y-1.5 ${f.half ? '' : 'col-span-2'}`}>
+                  <Label htmlFor={`ef-card-${f.key}`} className="text-sm font-medium">{f.label}</Label>
+                  <Input id={`ef-card-${f.key}`} value={formData.card[f.key] ?? ''} placeholder={f.placeholder}
+                    type={f.secret && !showPassword ? 'password' : 'text'} autoComplete="off"
+                    inputMode={f.mono ? 'numeric' : undefined}
+                    onChange={e => setFormData(prev => ({ ...prev, card: { ...prev.card, [f.key]: e.target.value } }))}
+                    className={`h-10 bg-secondary/50 border-border/60 focus:border-primary text-sm ${f.mono ? 'font-mono' : ''}`} />
+                </div>
+              ))}
+              <button type="button" onClick={() => setShowPassword(v => !v)} className="col-span-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 w-fit">
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}{showPassword ? 'Hide' : 'Show'} card number and codes
+              </button>
+            </div>
+          )}
+
+          {formData.type === 'identity' && (
+            <div className="grid grid-cols-2 gap-3">
+              {IDENTITY_FIELDS.map(f => (
+                <div key={f.key} className={`space-y-1.5 ${f.half ? '' : 'col-span-2'}`}>
+                  <Label htmlFor={`ef-id-${f.key}`} className="text-sm font-medium">{f.label}</Label>
+                  <Input id={`ef-id-${f.key}`} value={formData.identity[f.key] ?? ''} placeholder={f.placeholder} autoComplete="off"
+                    onChange={e => setFormData(prev => ({ ...prev, identity: { ...prev.identity, [f.key]: e.target.value } }))}
+                    className="h-10 bg-secondary/50 border-border/60 focus:border-primary text-sm" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Extra fields */}
+          <div className="space-y-2">
+            {formData.fields.map((f, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <Input value={f.label} placeholder="Field name" aria-label="Field name"
+                  onChange={e => setFormData(prev => ({ ...prev, fields: prev.fields.map((x, j) => j === i ? { ...x, label: e.target.value } : x) }))}
+                  className="h-9 w-1/3 bg-secondary/50 border-border/60 text-sm" />
+                <Input value={f.value} placeholder="Value" aria-label={`${f.label || 'Field'} value`} type={f.hidden && !showPassword ? 'password' : 'text'} autoComplete="off"
+                  onChange={e => setFormData(prev => ({ ...prev, fields: prev.fields.map((x, j) => j === i ? { ...x, value: e.target.value } : x) }))}
+                  className="h-9 flex-1 bg-secondary/50 border-border/60 text-sm" />
+                <button type="button" title={f.hidden ? 'Hidden like a password' : 'Shown as plain text'}
+                  onClick={() => setFormData(prev => ({ ...prev, fields: prev.fields.map((x, j) => j === i ? { ...x, hidden: !x.hidden } : x) }))}
+                  className="w-8 h-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground">
+                  {f.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+                <button type="button" aria-label="Remove field" onClick={() => setFormData(prev => ({ ...prev, fields: prev.fields.filter((_, j) => j !== i) }))}
+                  className="w-8 h-8 flex items-center justify-center rounded text-muted-foreground hover:text-destructive">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setFormData(prev => ({ ...prev, fields: [...prev.fields, { label: '', value: '', hidden: false }] }))}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5" />Add a field
+            </button>
+          </div>
 
           {/* Tags */}
           <div className="space-y-1.5">

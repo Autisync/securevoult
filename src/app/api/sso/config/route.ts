@@ -14,27 +14,32 @@ import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements, planLimitPayload } from '@/lib/entitlements';
 import { isSSOAvailable, SSOProvider } from '@/lib/sso';
+import { badRequest, forbidden, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
 
 const SENSITIVE_FIELDS = ['oidcClientSecret', 'samlCert'];
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultRead);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const entitlements = await resolveEntitlements(user.uid);
   const isGlobalAdmin = entitlements.scope === 'global_admin';
   const isCompanyAdmin = entitlements.scope === 'company_admin';
   if (!isGlobalAdmin && !isCompanyAdmin) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    return forbidden('Forbidden.');
   }
 
   if (!isSSOAvailable(entitlements.effectivePlan)) {
@@ -50,7 +55,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!entitlements.companyId) {
-    return NextResponse.json({ error: 'No company associated with your account.' }, { status: 400 });
+    return badRequest('No company associated with your account.');
   }
 
   const config = await SSOConfig.findOne({ companyId: entitlements.companyId }).lean();
@@ -70,21 +75,21 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.adminAction);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const entitlements = await resolveEntitlements(user.uid);
   const isGlobalAdmin = entitlements.scope === 'global_admin';
   const isCompanyAdmin = entitlements.scope === 'company_admin';
   if (!isGlobalAdmin && !isCompanyAdmin) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    return forbidden('Forbidden.');
   }
 
   if (!isSSOAvailable(entitlements.effectivePlan)) {
@@ -100,17 +105,17 @@ export async function POST(request: NextRequest) {
   }
 
   if (!entitlements.companyId) {
-    return NextResponse.json({ error: 'No company associated with your account.' }, { status: 400 });
+    return badRequest('No company associated with your account.');
   }
 
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const validProviders: SSOProvider[] = ['saml', 'oidc', 'google_workspace', 'azure_ad'];
   if (body.provider && !validProviders.includes(body.provider as SSOProvider)) {
-    return NextResponse.json({ error: 'Invalid provider value.' }, { status: 400 });
+    return badRequest('Invalid provider value.');
   }
 
   // Allowlist of updatable fields to prevent mass-assignment
@@ -132,7 +137,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (Object.keys(update).length === 1) {
-    return NextResponse.json({ error: 'No valid fields provided.' }, { status: 400 });
+    return badRequest('No valid fields provided.');
   }
 
   const config = await SSOConfig.findOneAndUpdate(

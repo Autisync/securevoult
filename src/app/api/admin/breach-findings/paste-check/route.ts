@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
+import { apiError, badRequest, tooManyRequests } from '@/lib/api-error';
 
 export interface HibpPaste {
   Source: string;
@@ -30,14 +31,15 @@ export interface HibpPaste {
   EmailCount: number;
 }
 
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
+
 export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
   const rl = await checkRateLimit(ip, RATE_LIMITS.admin);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const adminResult = await requireVerifiedAdmin(req);
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
 
   const email = req.nextUrl.searchParams.get('email')?.trim();
   if (!email || !email.includes('@')) {
-    return NextResponse.json({ error: 'Valid email required.' }, { status: 400 });
+    return badRequest('Valid email required.');
   }
 
   try {
@@ -68,18 +70,12 @@ export async function GET(req: NextRequest) {
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      return NextResponse.json(
-        { error: `HIBP Paste API error ${res.status}: ${body.slice(0, 200)}` },
-        { status: 502 }
-      );
+      return apiError(502, 'upstream_error', `HIBP Paste API error ${res.status}: ${body.slice(0, 200)}`);
     }
 
     const pastes: HibpPaste[] = await res.json();
     return NextResponse.json({ email, pastes: Array.isArray(pastes) ? pastes : [] });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to contact HIBP' },
-      { status: 502 }
-    );
+    return apiError(502, 'upstream_error', err instanceof Error ? err.message : 'Failed to contact HIBP');
   }
 }

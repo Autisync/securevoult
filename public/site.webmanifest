@@ -1,0 +1,24 @@
+{
+  "name": "SecureVoult",
+  "short_name": "SecureVoult",
+  "description": "Zero-knowledge encrypted password manager",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#080d1a",
+  "background_color": "#080d1a",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/"
+}

@@ -11,8 +11,12 @@ import {
   toPublicSession,
   ClientType,
 } from '@/lib/session-service';
-import { badRequest, serviceUnavailable, unauthorized } from '@/lib/api-error';
+import { tooManyRequests, serviceUnavailable, unauthorized } from '@/lib/api-error';
 import { randomUUID } from 'crypto';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 // ── GET — list active sessions ───────────────────────────────────────────────
 
@@ -20,10 +24,7 @@ export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.sessions);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: true, code: 'rate_limited', message: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const authResult = await requireAuthenticatedUser(request);
@@ -49,10 +50,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.sessions);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: true, code: 'rate_limited', message: 'Too many requests.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const authResult = await requireAuthenticatedUser(request);

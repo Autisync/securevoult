@@ -13,12 +13,17 @@ import { WebAuthnChallenge, PasskeyCredential, User } from '@/lib/models';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { generateChallenge, generateUserIdBytes, getRpId, getRpName } from '@/lib/webauthn';
+import { serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.auth);
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const authResult = await requireAuthenticatedUser(request);
@@ -26,7 +31,7 @@ export async function POST(request: NextRequest) {
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   // Check if user already has passkeys to get a consistent userIdBytes

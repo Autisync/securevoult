@@ -4,15 +4,14 @@
   "version": "1.0.0",
   "description": "Zero-knowledge password manager — autofill, breach monitoring, and encrypted vault sync.",
   "author": "SecureVoult Ltd",
-  "homepage_url": "https://securevoult.com",
+  "homepage_url": "https://securevoult.co.uk",
 
   "permissions": [
     "storage",
     "activeTab",
     "tabs",
     "contextMenus",
-    "https://*/*",
-    "http://*/*"
+    "https://*/*"
   ],
 
   "browser_action": {
@@ -33,7 +32,7 @@
 
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["https://*/*"],
       "js":      ["content.js"],
       "run_at":  "document_end",
       "all_frames": true
@@ -77,7 +76,7 @@
 
   "browser_specific_settings": {
     "gecko": {
-      "id":              "addon@securevoult.com",
+      "id":              "addon@securevoult.co.uk",
       "strict_min_version": "109.0"
     }
   }

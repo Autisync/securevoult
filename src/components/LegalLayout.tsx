@@ -147,7 +147,7 @@ export function LegalLayout({
         <article className="min-w-0">
           <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 mb-10 animate-fade-up">
             <p className="text-xs text-amber-400/80 leading-relaxed">
-              <strong className="text-amber-400">Plain language notice:</strong> We have written these documents to be readable, not just legally complete. If anything is unclear, email us at <a href="mailto:legal@securevoult.com" className="underline underline-offset-2 hover:opacity-80">legal@securevoult.com</a>.
+              <strong className="text-amber-400">Plain language notice:</strong> We have written these documents to be readable, not just legally complete. If anything is unclear, email us at <a href="mailto:legal@securevoult.co.uk" className="underline underline-offset-2 hover:opacity-80">legal@securevoult.co.uk</a>.
             </p>
           </div>
 
@@ -179,11 +179,11 @@ export function LegalLayout({
                 Our team is happy to answer any questions. We respond to all legal enquiries within 5 business days.
               </p>
               <div className="flex items-center justify-center gap-4 flex-wrap text-xs">
-                <a href="mailto:legal@securevoult.com" className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors font-medium">
-                  legal@securevoult.com
+                <a href="mailto:legal@securevoult.co.uk" className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors font-medium">
+                  legal@securevoult.co.uk
                 </a>
-                <a href="mailto:privacy@securevoult.com" className="px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
-                  privacy@securevoult.com
+                <a href="mailto:privacy@securevoult.co.uk" className="px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
+                  privacy@securevoult.co.uk
                 </a>
               </div>
             </div>

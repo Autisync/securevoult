@@ -24,7 +24,7 @@ const sections = [
       <>
         <P>SecureVoult provides a zero-knowledge encrypted password management service, including:</P>
         <Ul>
-          <Li>Web application at securevoult.com</Li>
+          <Li>Web application at securevoult.co.uk</Li>
           <Li>Desktop applications for Windows, macOS, and Linux</Li>
           <Li>Mobile applications for iOS and Android</Li>
           <Li>Browser extensions for Chrome, Firefox, Edge, Brave, Opera, and Safari</Li>
@@ -49,7 +49,7 @@ const sections = [
         <H3>Account security</H3>
         <Ul>
           <Li>You are solely responsible for all activity that occurs under your account</Li>
-          <Li>Notify us immediately at security@securevoult.com if you suspect unauthorised access</Li>
+          <Li>Notify us immediately at security@securevoult.co.uk if you suspect unauthorised access</Li>
           <Li>We recommend enabling multi-factor authentication</Li>
           <Li>Do not share your account credentials with others</Li>
         </Ul>
@@ -87,7 +87,7 @@ const sections = [
         <H3>Paid plans</H3>
         <P>Pro and Company plans are billed monthly or annually via Stripe. Prices are in GBP and exclude VAT where applicable. By subscribing, you authorise us to charge your payment method on each billing date.</P>
         <H3>Refunds</H3>
-        <P>We offer a 30-day money-back guarantee on all paid plans. After 30 days, payments are non-refundable except where required by law. Contact billing@securevoult.com to request a refund.</P>
+        <P>We offer a 30-day money-back guarantee on all paid plans. After 30 days, payments are non-refundable except where required by law. Contact billing@securevoult.co.uk to request a refund.</P>
         <H3>Plan changes</H3>
         <Ul>
           <Li>Upgrades: take effect immediately; you are billed a pro-rated amount for the remainder of the billing period</Li>
@@ -142,7 +142,7 @@ const sections = [
     title: 'Service Availability',
     content: (
       <>
-        <P>We target 99.9% monthly uptime and publish our status at <strong>status.securevoult.com</strong>. Planned maintenance windows will be communicated at least 48 hours in advance.</P>
+        <P>We target 99.9% monthly uptime and publish our status at <strong>status.securevoult.co.uk</strong>. Planned maintenance windows will be communicated at least 48 hours in advance.</P>
         <P>We are not liable for downtime caused by events outside our reasonable control (force majeure), including but not limited to natural disasters, government actions, third-party infrastructure failures, or cyberattacks.</P>
       </>
     ),

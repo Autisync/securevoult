@@ -22,19 +22,24 @@ import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import {
   verifyAuthentication, getRpId, getAllowedOrigins,
 } from '@/lib/webauthn';
+import { badRequest, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
 
 // Reuse the shared Firebase Admin app (initialised from FIREBASE_ADMIN_* env vars)
 import { getAdminAuth } from '@/lib/firebase-admin';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.auth);
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   let body: {
@@ -45,18 +50,18 @@ export async function POST(request: NextRequest) {
     userHandle?: string;
   };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { credentialId, clientDataJSON, authenticatorData, signature } = body;
   if (!credentialId || !clientDataJSON || !authenticatorData || !signature) {
-    return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
+    return badRequest('Missing required fields.');
   }
 
   // Look up stored credential
   const cred = await PasskeyCredential.findOne({ credentialId });
   if (!cred) {
-    return NextResponse.json({ error: 'Passkey not found.' }, { status: 404 });
+    return notFound('Passkey not found.');
   }
 
   // Retrieve and consume the pending authentication challenge
@@ -69,7 +74,7 @@ export async function POST(request: NextRequest) {
     ],
   });
   if (!challengeDoc) {
-    return NextResponse.json({ error: 'No pending authentication challenge. Please retry.' }, { status: 400 });
+    return badRequest('No pending authentication challenge. Please retry.');
   }
 
   const rpId = getRpId();
@@ -98,7 +103,7 @@ export async function POST(request: NextRequest) {
     // Look up the user for email / Firebase UID
     const dbUser = await User.findOne({ firebaseUid: cred.firebaseUid }).select('email firebaseUid');
     if (!dbUser) {
-      return NextResponse.json({ error: 'User account not found.' }, { status: 404 });
+      return notFound('User account not found.');
     }
 
     // Mint a Firebase custom token so the client can sign in
@@ -113,9 +118,6 @@ export async function POST(request: NextRequest) {
       email: dbUser.email,
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Authentication failed.' },
-      { status: 400 }
-    );
+    return badRequest(err instanceof Error ? err.message : 'Authentication failed.');
   }
 }

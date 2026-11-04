@@ -17,22 +17,45 @@ import { Company, SSOConfig } from '@/lib/models';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { isSSOAvailable } from '@/lib/sso';
 import { initiateSSOLogin } from '@/lib/sso';
+import { apiError, badRequest, forbidden, internalError, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
+
+function resolveRelayState(rawRedirectTo: string | null): string | null {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  try {
+    const target = new URL(rawRedirectTo ?? '/', appUrl);
+    const appOrigin = new URL(appUrl).origin;
+    if (target.origin !== appOrigin) {
+      return null;
+    }
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.auth);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   const { searchParams } = new URL(request.url);
   const companyIdOrSlug = searchParams.get('companyId');
-  const relayState = searchParams.get('redirectTo') ?? '/';
+  const relayState = resolveRelayState(searchParams.get('redirectTo'));
 
   if (!companyIdOrSlug) {
-    return NextResponse.json({ error: 'companyId query parameter is required.' }, { status: 400 });
+    return badRequest('companyId query parameter is required.');
+  }
+
+  if (!relayState) {
+    return badRequest('redirectTo must be a same-origin path.');
   }
 
   // Look up the company by ID or slug
@@ -48,22 +71,16 @@ export async function GET(request: NextRequest) {
   }>();
 
   if (!company || !company.isActive) {
-    return NextResponse.json({ error: 'Company not found.' }, { status: 404 });
+    return notFound('Company not found.');
   }
 
   if (!isSSOAvailable(company.plan as Parameters<typeof isSSOAvailable>[0])) {
-    return NextResponse.json(
-      { error: 'SSO is not available for this company. Enterprise plan required.' },
-      { status: 403 }
-    );
+    return forbidden('SSO is not available for this company. Enterprise plan required.');
   }
 
   const ssoConfig = await SSOConfig.findOne({ companyId: company._id }).lean();
   if (!ssoConfig) {
-    return NextResponse.json(
-      { error: 'SSO is not configured for this company. Contact your administrator.' },
-      { status: 404 }
-    );
+    return notFound('SSO is not configured for this company. Contact your administrator.');
   }
 
   const result = await initiateSSOLogin(
@@ -74,17 +91,18 @@ export async function GET(request: NextRequest) {
   if ('error' in result) {
     const errResult = result as { error: string; notImplemented?: true };
     if (errResult.notImplemented) {
-      return NextResponse.json(
+      return apiError(
+        501,
+        'not_implemented',
+        'SSO login is not yet implemented.',
         {
-          error: 'SSO login is not yet implemented.',
           detail: errResult.error,
           status: 'scaffold',
           hint: 'Wire a SAML/OIDC library into src/lib/sso.ts to enable SSO login.',
-        },
-        { status: 501 }
+        }
       );
     }
-    return NextResponse.json({ error: errResult.error }, { status: 500 });
+    return internalError(errResult.error);
   }
 
   return NextResponse.redirect(result.redirectUrl);

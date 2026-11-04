@@ -5,15 +5,17 @@ import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements, planLimitPayload } from '@/lib/entitlements';
 import { logLimitEvent } from '@/lib/limit-logger';
+import { tooManyRequests, serviceUnavailable, badRequest, conflict } from '@/lib/api-error';
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 async function ensureDB() {
   try {
     await connectDB();
   } catch {
-    return NextResponse.json(
-      { error: 'Database unavailable. Please try again later.' },
-      { status: 503 }
-    );
+    return serviceUnavailable('Database unavailable.');
   }
   return null;
 }
@@ -22,10 +24,7 @@ export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultRead);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please try again later.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const authResult = await requireAuthenticatedUser(request);
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
     success: true,
     vault: vault
       ? { encryptedData: vault.encryptedVault, version: vault.version, lastSync: vault.lastSync }
-      : { encryptedData: '', version: 1, lastSync: null },
+      : { encryptedData: '', version: 0, lastSync: null },
   });
 }
 
@@ -51,10 +50,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultWrite);
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please try again later.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-    );
+    return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
   const authResult = await requireAuthenticatedUser(request);
@@ -65,20 +61,20 @@ export async function POST(request: NextRequest) {
 
   const { uid } = authResult.user;
 
-  let body: { encryptedVault?: string; version?: number; entryCount?: number };
+  let body: { encryptedVault?: string; version?: number; baseVersion?: number; entryCount?: number };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return badRequest('Invalid request body');
   }
 
-  const { encryptedVault, version, entryCount } = body;
+  const { encryptedVault, version, baseVersion, entryCount } = body;
 
   if (!encryptedVault || typeof encryptedVault !== 'string') {
-    return NextResponse.json(
-      { error: 'encryptedVault (string) is required' },
-      { status: 400 }
-    );
+    return badRequest('encryptedVault (string) is required');
+  }
+  if (encryptedVault.length > 20 * 1024 * 1024) {
+    return badRequest('Vault is too large');
   }
 
   // ── Plan enforcement: entry count ─────────────────────────────────────────
@@ -116,35 +112,56 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Version-conflict safeguard: prevent a stale client from silently
-  // overwriting a newer server vault.  If the client sends `clientVersion`
-  // and the server already has a higher version, return 409 so the client can
-  // merge/reload before writing.
+  // Compare-and-set: the write only lands if the server is still at the
+  // version this client started from. Otherwise 409 + the current version,
+  // and the client fetches, merges item by item, and tries again.
+  if (typeof baseVersion === 'number') {
+    const lastSync = new Date();
+    let saved = await Vault.findOneAndUpdate(
+      { userId: uid, version: baseVersion },
+      { $set: { encryptedVault, lastSync }, $inc: { version: 1 } },
+      { new: true },
+    );
+    if (!saved && baseVersion === 0) {
+      const existing = await Vault.findOne({ userId: uid }).select('version encryptedVault').lean() as { version?: number; encryptedVault?: string } | null;
+      if (!existing) {
+        try {
+          saved = await Vault.create({ userId: uid, encryptedVault, version: 1, lastSync });
+        } catch {
+          saved = null; // another device created it at the same moment
+        }
+      } else if (!existing.encryptedVault) {
+        saved = await Vault.findOneAndUpdate(
+          { userId: uid, version: existing.version },
+          { $set: { encryptedVault, lastSync }, $inc: { version: 1 } },
+          { new: true },
+        );
+      }
+    }
+    if (!saved) {
+      const current = await Vault.findOne({ userId: uid }).select('version').lean() as { version?: number } | null;
+      return NextResponse.json(
+        { error: true, code: 'conflict', message: 'Your vault changed on another device.', serverVersion: current?.version ?? 0 },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ success: true, version: saved.version, lastSync: saved.lastSync });
+  }
+
+  // Older clients (no baseVersion): refuse a stale version, otherwise overwrite.
   if (version !== undefined) {
     const existing = await Vault.findOne({ userId: uid }).select('version').lean() as { version?: number } | null;
     if (existing && typeof existing.version === 'number' && version < existing.version) {
-      return NextResponse.json(
-        {
-          error: 'Version conflict: server has a newer vault. Fetch the latest version before saving.',
-          serverVersion: existing.version,
-        },
-        { status: 409 }
-      );
+      return conflict('Version conflict: server has a newer vault. Fetch the latest version before saving.');
     }
   }
 
-  const vault = await Vault.findOneAndUpdate(
-    { userId: uid },
-    {
-      $set: {
-        encryptedVault,
-        lastSync: new Date(),
-        ...(version !== undefined ? { version } : {}),
-      },
-      $setOnInsert: { userId: uid },
-    },
-    { upsert: true, new: true }
-  );
+  const vault =
+    (await Vault.findOneAndUpdate(
+      { userId: uid },
+      { $set: { encryptedVault, lastSync: new Date() }, $inc: { version: 1 } },
+      { new: true },
+    )) ?? (await Vault.create({ userId: uid, encryptedVault, version: 1, lastSync: new Date() }));
 
   return NextResponse.json({
     success: true,

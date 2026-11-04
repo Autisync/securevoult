@@ -109,7 +109,7 @@ const sections = [
         <H3>Encryption</H3>
         <Ul>
           <Li>AES-256-GCM client-side encryption of all vault data</Li>
-          <Li>PBKDF2 (310,000 iterations, SHA-256) or Argon2id key derivation</Li>
+          <Li>Argon2id key derivation (64 MiB, 3 passes)</Li>
           <Li>TLS 1.3 for all data in transit</Li>
           <Li>AES-256 encryption at rest (MongoDB Atlas, managed keys)</Li>
         </Ul>
@@ -167,7 +167,7 @@ const sections = [
           <Li>EU Standard Contractual Clauses (Module 2: Controller to Processor) for EEA transfers</Li>
           <Li>Adequacy decisions where available (e.g., UK-US Data Bridge)</Li>
         </Ul>
-        <P>Copies of applicable transfer mechanisms are available upon written request to <strong>dpa@securevoult.com</strong>.</P>
+        <P>Copies of applicable transfer mechanisms are available upon written request to <strong>dpa@securevoult.co.uk</strong>.</P>
       </>
     ),
   },

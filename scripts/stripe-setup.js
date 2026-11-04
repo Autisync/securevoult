@@ -258,7 +258,7 @@ async function main() {
     console.log('\n── Webhook ──');
     console.log('  ℹ️   Skipping webhook creation (NEXT_PUBLIC_APP_URL is not an https:// URL).');
     console.log('       For local testing run:  stripe listen --forward-to localhost:3000/api/billing/webhook');
-    console.log('       For production set NEXT_PUBLIC_APP_URL=https://app.securevoult.com and re-run.');
+    console.log('       For production set NEXT_PUBLIC_APP_URL=https://app.securevoult.co.uk and re-run.');
   }
 
   if (webhookSecret) {

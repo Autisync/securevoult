@@ -12,26 +12,31 @@ import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements, planLimitPayload } from '@/lib/entitlements';
 import { logLimitEvent } from '@/lib/limit-logger';
+import { badRequest, conflict, forbidden, notFound, serviceUnavailable, tooManyRequests } from '@/lib/api-error';
 
 type RouteParams = { params: Promise<{ id: string }> };
+
+function retryAfterSeconds(resetAt: number): number {
+  return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+}
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const { id: companyId } = await params;
 
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultRead);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   if (!mongoose.isValidObjectId(companyId)) {
-    return NextResponse.json({ error: 'Invalid company ID.' }, { status: 400 });
+    return badRequest('Invalid company ID.');
   }
 
   const entitlements = await resolveEntitlements(user.uid);
@@ -43,13 +48,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     entitlements.companyId === companyId;
 
   if (!isGlobalAdmin && !isCompanyAdmin) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    return forbidden('Forbidden.');
   }
 
   const company = await Company.findById(companyId)
     .select('name plan status maxSeats ownerFirebaseUid')
     .lean<{ name: string; plan: string; status?: string; maxSeats: number; ownerFirebaseUid: string }>();
-  if (!company) return NextResponse.json({ error: 'Company not found.' }, { status: 404 });
+  if (!company) return notFound('Company not found.');
 
   const members = await User.find({ companyId })
     .select('firebaseUid email displayName role isActive plan createdAt')
@@ -88,18 +93,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultWrite);
-  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  if (!rl.allowed) return tooManyRequests(retryAfterSeconds(rl.resetAt));
 
   const authResult = await requireAuthenticatedUser(request);
   if ('error' in authResult) return authResult.error;
   const { user } = authResult;
 
   try { await connectDB(); } catch {
-    return NextResponse.json({ error: 'Database unavailable.' }, { status: 503 });
+    return serviceUnavailable('Database unavailable.');
   }
 
   if (!mongoose.isValidObjectId(companyId)) {
-    return NextResponse.json({ error: 'Invalid company ID.' }, { status: 400 });
+    return badRequest('Invalid company ID.');
   }
 
   const entitlements = await resolveEntitlements(user.uid);
@@ -108,26 +113,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     (entitlements.scope === 'company_admin') && entitlements.companyId === companyId;
 
   if (!isGlobalAdmin && !isCompanyAdmin) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    return forbidden('Forbidden.');
   }
 
   let body: { targetEmail?: string; role?: string };
   try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    return badRequest('Invalid JSON body.');
   }
 
   const { targetEmail, role = 'user' } = body;
   if (!targetEmail || typeof targetEmail !== 'string') {
-    return NextResponse.json({ error: 'targetEmail is required.' }, { status: 400 });
+    return badRequest('targetEmail is required.');
   }
   if (!['user', 'companyAdmin'].includes(role)) {
-    return NextResponse.json({ error: 'role must be "user" or "companyAdmin".' }, { status: 400 });
+    return badRequest('role must be "user" or "companyAdmin".');
   }
 
   const company = await Company.findById(companyId)
     .select('name plan status maxSeats')
     .lean<{ name: string; plan: string; status?: string; maxSeats: number }>();
-  if (!company) return NextResponse.json({ error: 'Company not found.' }, { status: 404 });
+  if (!company) return notFound('Company not found.');
 
   // Seat limit enforcement
   const currentSeats = await User.countDocuments({ companyId });
@@ -158,13 +163,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const targetUser = await User.findOne({ email: targetEmail.toLowerCase().trim() });
   if (!targetUser) {
-    return NextResponse.json({ error: 'User not found. They must have a SecureVoult account.' }, { status: 404 });
+    return notFound('User not found. They must have a SecureVoult account.');
   }
   if (targetUser.companyId?.toString() === companyId) {
-    return NextResponse.json({ error: 'User is already a member of this company.' }, { status: 409 });
+    return conflict('User is already a member of this company.');
   }
   if (targetUser.companyId) {
-    return NextResponse.json({ error: 'User already belongs to another company.' }, { status: 409 });
+    return conflict('User already belongs to another company.');
   }
 
   await User.updateOne(
