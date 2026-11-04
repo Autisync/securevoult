@@ -74,6 +74,8 @@ function createDefaultStore(): RateLimitStore {
 
 // Singleton store shared across all rate limiter instances in this process.
 const defaultStore: RateLimitStore = createDefaultStore();
+const memoryFallback: RateLimitStore = new InMemoryStore();
+let redisWarned = false;
 
 // ── Rate limiter ────────────────────────────────────────────────────────────
 
@@ -102,11 +104,20 @@ export async function checkRateLimit(
   identifier: string,
   config: RateLimitConfig
 ): Promise<RateLimitResult> {
-  const store = config.store ?? defaultStore;
   const storeKey = `rl:${config.key}:${identifier}`;
   const now = Date.now();
+  let store = config.store ?? defaultStore;
 
-  let record = await store.get(storeKey);
+  // If Redis is unreachable (expired Upstash database, network), fall back to
+  // this process's memory instead of failing every vault request with a 500.
+  let record: RateLimitRecord | null;
+  try {
+    record = await store.get(storeKey);
+  } catch (err) {
+    if (!redisWarned) { console.error('[rate-limit] Redis unavailable, using in-memory limits:', err instanceof Error ? err.message : err); redisWarned = true; }
+    store = memoryFallback;
+    record = await store.get(storeKey);
+  }
 
   if (!record || now - record.windowStart >= config.windowMs) {
     // New window
@@ -135,6 +146,10 @@ export async function checkRateLimit(
  * Falls back to 'unknown' — rate limits will still apply but will share a bucket.
  */
 export function getClientIp(request: Request): string {
+  // Behind Cloudflare: the visitor's address as Cloudflare saw it.
+  const cf = request.headers.get('cf-connecting-ip');
+  if (cf) return cf.trim();
+
   // Vercel / common proxies
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
