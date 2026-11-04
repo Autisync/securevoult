@@ -63,6 +63,30 @@ location / {
 Updates: `git pull && docker compose --env-file .env.production up -d --build`.
 Never add `--remove-orphans` or `down -v`: `-v` deletes the database volume.
 
+## On the Autisync server (Traefik)
+
+DNS (`vault.autisync.com` → the server, proxied by Cloudflare) and the
+Firebase authorised domain are already set. Traefik there already serves
+app.autisync.com, so SecureVoult joins it instead of using port 3100:
+
+```
+cd ~ && git clone <repo> securevoult && cd securevoult
+# put .env.production here (copied from your PC, see below)
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml --env-file .env.production up -d --build
+docker compose ps
+curl -s https://vault.autisync.com/api/health
+```
+
+Updates: `git pull` then the same `up -d --build` line.
+
+Making `.env.production` on your PC, from `.env.local` (PowerShell, in the
+project folder), then copying it to the server:
+
+```
+(Get-Content .env.local) -replace '^NEXT_PUBLIC_APP_URL=.*','NEXT_PUBLIC_APP_URL=https://vault.autisync.com' -replace '^MONGODB_URI=.*','MONGODB_URI=' -replace '^ADMIN_EMAILS=.*','ADMIN_EMAILS=you@example.com' | Set-Content .env.production
+scp .env.production <user>@46.224.226.218:~/securevoult/.env.production
+```
+
 ## 4. Backups
 
 The `backup` service writes `./backups/securevoult-YYYY-MM-DD.archive.gz` once a

@@ -63,3 +63,9 @@ securevoult-*.patch
 
 desktop/dist/
 *.zip
+
+extension-package/background.js
+extension-package/content.js
+extension-package/popup.bundle.js
+extension-package/popup.bundle.css
+extension-package/popup.styles.css

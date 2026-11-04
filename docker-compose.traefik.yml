@@ -1,0 +1,23 @@
+# Adds SecureVoult to the Traefik already running on the Autisync server
+# (same network, entrypoint and certificate resolver as app.autisync.com).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.traefik.yml --env-file .env.production up -d --build
+
+services:
+  app:
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_PUBLIC_NETWORK:-traefik-public}
+      - traefik.http.routers.securevoult.rule=Host(`${VAULT_HOST:-vault.autisync.com}`)
+      - traefik.http.routers.securevoult.entrypoints=websecure
+      - traefik.http.routers.securevoult.tls=true
+      - traefik.http.routers.securevoult.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.services.securevoult.loadbalancer.server.port=3000
+    networks:
+      - default
+      - traefik-public
+
+networks:
+  traefik-public:
+    external: true
+    name: ${TRAEFIK_PUBLIC_NETWORK:-traefik-public}
