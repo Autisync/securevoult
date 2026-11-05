@@ -8,6 +8,7 @@
  * Ownership is enforced: a user can only revoke their own sessions.
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { recordEvent } from '@/lib/security-events';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { revokeSession, revokeOtherSessions } from '@/lib/session-service';
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
         return badRequest('x-session-id header is required to revoke other sessions');
       }
       const count = await revokeOtherSessions(uid, currentSessionId);
+      await recordEvent(request, { type: 'session_revoked', uid, email: authResult.user.email, summary: `Signed out ${count} other device${count === 1 ? '' : 's'}` });
       return NextResponse.json({ success: true, revoked: count });
     }
 
@@ -47,6 +49,7 @@ export async function POST(request: NextRequest) {
       if (!ok) {
         return notFound('Session not found or already revoked.');
       }
+      await recordEvent(request, { type: 'session_revoked', uid, email: authResult.user.email, details: { sessionId: body.sessionId.slice(0, 8) + '…' } });
       return NextResponse.json({ success: true });
     }
 

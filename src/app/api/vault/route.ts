@@ -6,6 +6,7 @@ import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { resolveEntitlements, planLimitPayload } from '@/lib/entitlements';
 import { logLimitEvent } from '@/lib/limit-logger';
 import { tooManyRequests, serviceUnavailable, badRequest, conflict } from '@/lib/api-error';
+import { recordEvent } from '@/lib/security-events';
 
 function retryAfterSeconds(resetAt: number): number {
   return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultRead);
   if (!rl.allowed) {
+    void recordEvent(request, { type: 'rate_limited', summary: 'Too many vault requests' });
     return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
@@ -53,6 +55,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   const rl = await checkRateLimit(ip, RATE_LIMITS.vaultWrite);
   if (!rl.allowed) {
+    void recordEvent(request, { type: 'rate_limited', summary: 'Too many vault requests' });
     return tooManyRequests(retryAfterSeconds(rl.resetAt));
   }
 
@@ -133,6 +136,7 @@ export async function POST(request: NextRequest) {
       if (!existing) {
         try {
           saved = await Vault.create({ userId: uid, encryptedVault, version: 1, lastSync });
+          void recordEvent(request, { type: 'vault_created', uid, email: authResult.user.email });
         } catch {
           saved = null; // another device created it at the same moment
         }

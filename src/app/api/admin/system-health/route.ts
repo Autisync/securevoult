@@ -4,7 +4,9 @@ import connectDB from '@/lib/db-connect';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { tooManyRequests } from '@/lib/api-error';
-import { VaultFile } from '@/lib/models';
+import { VaultFile, SystemState, SecurityEvent } from '@/lib/models';
+import { mailConfigured } from '@/lib/mailer';
+import type { VulnScan } from '@/lib/vuln-scan';
 import { readdir, stat, statfs } from 'node:fs/promises';
 
 export const runtime = 'nodejs';
@@ -15,8 +17,8 @@ const BACKUP_DIR = process.env.BACKUP_DIR ?? '/backups';
 /** The nightly dumps written by the backup container (mounted read-only). */
 async function backupInfo() {
   try {
-    const names = (await readdir(BACKUP_DIR)).filter((n) => /^securevoult-.*\.archive\.gz$/.test(n));
-    const files = await Promise.all(names.map(async (n) => ({ name: n, ...(await stat(`${BACKUP_DIR}/${n}`)) })));
+    const names = (await readdir(/* turbopackIgnore: true */ BACKUP_DIR)).filter((n) => /^securevoult-.*\.archive\.gz$/.test(n));
+    const files = await Promise.all(names.map(async (n) => ({ name: n, ...(await stat(/* turbopackIgnore: true */ `${BACKUP_DIR}/${n}`)) })));
     files.sort((a, b) => b.mtimeMs - a.mtimeMs);
     const latest = files[0];
     return {
@@ -33,7 +35,7 @@ async function backupInfo() {
 
 async function diskInfo() {
   try {
-    const s = await statfs(BACKUP_DIR).catch(() => statfs('/'));
+    const s = await statfs(/* turbopackIgnore: true */ BACKUP_DIR).catch(() => statfs('/'));
     return { freeBytes: s.bavail * s.bsize, totalBytes: s.blocks * s.bsize };
   } catch {
     return null;
@@ -79,6 +81,13 @@ export async function GET(request: NextRequest) {
   // Bump with each release you want to name; the commit below is always exact.
   const appVersion = '1.0.0';
 
+  const [vulnScan, critical24h] = dbStatus === 'connected'
+    ? await Promise.all([
+        SystemState.findOne({ key: 'vuln-scan' }).lean().then((d) => ((d as { value?: VulnScan } | null)?.value ?? null)).catch(() => null),
+        SecurityEvent.countDocuments({ severity: 'critical', at: { $gte: new Date(Date.now() - 24 * 3600e3) } }).catch(() => 0),
+      ])
+    : [null, 0];
+
   const [backups, disk, files] = await Promise.all([
     backupInfo(),
     diskInfo(),
@@ -111,6 +120,9 @@ export async function GET(request: NextRequest) {
       backups,
       disk,
       files,
+      email: { configured: mailConfigured() },
+      securityEvents: { critical24h },
+      dependencies: vulnScan,
     },
     build: {
       version: appVersion,
@@ -119,4 +131,14 @@ export async function GET(request: NextRequest) {
       uptimeSeconds: Math.round(process.uptime()),
     },
   });
+}
+
+/** POST: run the security-update check now instead of waiting for the next 6-hourly run. */
+export async function POST(request: NextRequest) {
+  const adminResult = await requireVerifiedAdmin(request);
+  if ('error' in adminResult) return adminResult.error;
+  try { await connectDB(); } catch { return NextResponse.json({ success: false, message: 'Database unavailable' }, { status: 503 }); }
+  const { checkDependencies } = await import('@/lib/jobs');
+  const scan = await checkDependencies(true);
+  return NextResponse.json({ success: !scan.error, scan, message: scan.error });
 }

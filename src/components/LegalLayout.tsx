@@ -184,7 +184,7 @@ export function LegalLayout({
       {/* Mini footer */}
       <footer className="border-t border-border/40 py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground/50">© {new Date().getFullYear()} {LEGAL.company}. {LEGAL.product} is a product of {LEGAL.company}.</p>
+          <p className="text-xs text-muted-foreground/50">© {new Date().getFullYear()} {LEGAL.company}. {LEGAL.product} is an Autisync product.</p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground/50">
             {[
               { label: 'Privacy Policy', href: '/privacy' },

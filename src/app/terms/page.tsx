@@ -6,7 +6,7 @@ export const metadata = {
   description: 'The agreement between you and Autisync for using SecureVoult.',
 };
 
-const who = [LEGAL.company, LEGAL.companyNumber && `company number ${LEGAL.companyNumber}`, LEGAL.address].filter(Boolean).join(', ');
+const who = [LEGAL.company, LEGAL.companyNumber, LEGAL.address].filter(Boolean).join(', ');
 
 const sections = [
   {

@@ -34,15 +34,11 @@ const FEATURE_ROWS: { label: string; key: keyof typeof PLAN_LIMITS.free }[] = [
   { label: 'Exposure intelligence',   key: 'pasteMonitoring' },
   { label: 'Passkey login',           key: 'passkeys' },
   { label: 'Browser extension sync',  key: 'extensionSync' },
-  { label: 'Mobile sync',             key: 'mobileSync' },
   { label: 'Session control',         key: 'sessionControl' },
   { label: 'Advanced reports',        key: 'advancedReports' },
   { label: 'Company dashboard',       key: 'companyFeatures' },
   { label: 'Audit logs',              key: 'auditLogs' },
   { label: 'Incident tracking',       key: 'incidentTracking' },
-  { label: 'Security policies',       key: 'securityPolicies' },
-  { label: 'SSO (SAML/OIDC)',         key: 'ssoReady' },
-  { label: 'API access',              key: 'apiAccess' },
   { label: 'Priority support',        key: 'prioritySupport' },
 ];
 

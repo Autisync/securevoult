@@ -17,6 +17,7 @@
  *    gate is token revocation.
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { recordEvent } from '@/lib/security-events';
 import admin from 'firebase-admin';
 import connectDB from '@/lib/db-connect';
 import { User, AdminActivity } from '@/lib/models';
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
     ipAddress: ip,
     userAgent: request.headers.get('user-agent') ?? 'unknown',
   }).save();
+  await recordEvent(request, { type: 'admin_forced_reset', uid: firebaseUid, email: targetUser.email, actorUid: adminResult.adminUid, actorEmail: adminResult.adminEmail, details: { reason: reason?.slice(0, 500) } });
 
   return NextResponse.json({
     success: true,

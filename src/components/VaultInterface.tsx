@@ -34,6 +34,7 @@ import {
   Globe, LayoutDashboard, Landmark, Menu,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { readRoute, writeRoute } from '@/lib/route';
 
 type SidebarView = 'all' | 'favorites' | 'category' | 'recent' | 'used' | 'generator' | 'security' | 'settings';
 
@@ -64,8 +65,16 @@ interface VaultInterfaceProps {
 }
 
 export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterfaceProps = {}) {
-  const [sidebarView, setSidebarView] = useState<SidebarView>('all');
-  const [activeCategory, setActiveCategory] = useState<string>('');
+  // Reloading keeps you on the same view (#/vault/settings, #/vault/category/Work …).
+  const [sidebarView, setSidebarView] = useState<SidebarView>(() => {
+    const r = readRoute();
+    const views: SidebarView[] = ['all', 'favorites', 'category', 'recent', 'used', 'generator', 'security', 'settings'];
+    return r[0] === 'vault' && views.includes(r[1] as SidebarView) && (r[1] !== 'category' || !!r[2]) ? (r[1] as SidebarView) : 'all';
+  });
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    const r = readRoute();
+    return r[0] === 'vault' && r[1] === 'category' ? (r[2] ?? '') : '';
+  });
   const [navOpen, setNavOpen] = useState(false);
   const [entryFormOpen, setEntryFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<PasswordEntry | undefined>();
@@ -80,6 +89,12 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
     return 'all';
   });
   const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Settings writes its own tab into the address.
+    if (sidebarView === 'settings' && readRoute()[1] === 'settings') return;
+    writeRoute(['vault', sidebarView, sidebarView === 'category' ? activeCategory : '']);
+  }, [sidebarView, activeCategory]);
 
   // Persist typeFilter to sessionStorage
   useEffect(() => {
@@ -99,6 +114,12 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
 
   // Auto-lock on inactivity — reacts live to Settings changes
   useAutoLock(prefs.autoLockMinutes, lockVault);
+
+  // A category restored from the address after a reload.
+  useEffect(() => {
+    if (isUnlocked && sidebarView === 'category' && activeCategory) setSelectedCategory(activeCategory);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isUnlocked]);
 
   // Apply defaultSort preference on vault unlock (only on initial unlock)
   useEffect(() => {
@@ -181,12 +202,13 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
   const securityStats = useMemo(() => {
     if (!allEntries.length) return { weak: 0, reused: 0, stale: 0 };
     const pwCounts = new Map<string, number>();
-    for (const e of allEntries) if (e.password) pwCounts.set(e.password, (pwCounts.get(e.password) ?? 0) + 1);
+    const hasPw = (e: PasswordEntry) => !!e.password && ['login', 'wifi'].includes(e.type ?? 'login');
+    for (const e of allEntries) if (hasPw(e)) pwCounts.set(e.password, (pwCounts.get(e.password) ?? 0) + 1);
     const ninetyDays = 90 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     let weak = 0, reused = 0, stale = 0;
     for (const e of allEntries) {
-      if (!e.password) continue;
+      if (!hasPw(e)) continue;
       if (CryptoService.checkPasswordStrength(e.password).strength === 'weak') weak++;
       if ((pwCounts.get(e.password) ?? 0) > 1) reused++;
       if (now - new Date(e.updatedAt).getTime() > ninetyDays) stale++;

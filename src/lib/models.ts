@@ -286,9 +286,48 @@ const vaultFileSchema = new mongoose.Schema(
 );
 vaultFileSchema.index({ userId: 1, fileId: 1 }, { unique: true });
 
+/**
+ * SecurityEvent — the security log: who did what, from where, and how serious.
+ * Serious ones are emailed to the admins (see lib/security-events.ts).
+ */
+const securityEventSchema = new mongoose.Schema(
+  {
+    at: { type: Date, default: Date.now },
+    type: { type: String, required: true, index: true },
+    severity: { type: String, enum: ['info', 'warning', 'critical'], default: 'info', index: true },
+    /** The account the event is about. */
+    uid: { type: String, index: true },
+    email: { type: String },
+    /** Who did it, when different (an admin acting on someone else). */
+    actorUid: { type: String },
+    actorEmail: { type: String },
+    ip: { type: String, index: true },
+    country: { type: String },
+    userAgent: { type: String },
+    device: { type: String },
+    method: { type: String },
+    path: { type: String },
+    summary: { type: String },
+    details: { type: mongoose.Schema.Types.Mixed },
+    alerted: { type: Boolean, default: false },
+  },
+  { versionKey: false }
+);
+securityEventSchema.index({ uid: 1, type: 1, at: -1 });
+// Kept for two years, then removed automatically.
+securityEventSchema.index({ at: 1 }, { expireAfterSeconds: 2 * 365 * 24 * 3600, name: 'expire_after_2y' });
+
+/** Small key/value store for background job results (vulnerability scan, last alerts). */
+const systemStateSchema = new mongoose.Schema(
+  { key: { type: String, required: true, unique: true }, value: { type: mongoose.Schema.Types.Mixed }, updatedAt: { type: Date, default: Date.now } },
+  { versionKey: false }
+);
+
 // Export models (guard against hot-reload re-registration)
 export const User = mongoose.models.User || mongoose.model('User', userSchema);
 export const Vault = mongoose.models.Vault || mongoose.model('Vault', vaultSchema);
+export const SecurityEvent = mongoose.models.SecurityEvent || mongoose.model('SecurityEvent', securityEventSchema);
+export const SystemState = mongoose.models.SystemState || mongoose.model('SystemState', systemStateSchema);
 export const VaultFile = mongoose.models.VaultFile || mongoose.model('VaultFile', vaultFileSchema);
 export const AdminActivity =
   mongoose.models.AdminActivity || mongoose.model('AdminActivity', adminActivitySchema);

@@ -131,6 +131,7 @@ const swAliases = {
 for (const [entry, out, plugins] of [
   ['extension-src/background.ts', 'background.js', [swAliases]],
   ['extension-src/content.ts', 'content.js', []],
+  ['extension-src/passkey-page.ts', 'passkey-page.js', []],
 ]) {
   await build({
     entryPoints: [resolve(root, entry)],

@@ -9,6 +9,7 @@
  *   POST /api/auth/2fa/backup-codes  { code } → { backupCodes }          (new set)
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { recordEvent, notifyUser } from '@/lib/security-events';
 import connectDB from '@/lib/db-connect';
 import { User } from '@/lib/models';
 import { requireAuthenticatedUser } from '@/lib/server-auth';
@@ -47,7 +48,10 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
   // 10 tries per 15 minutes per account and per address: a 6-digit code can't be guessed.
   for (const id of [`uid:${uid}`, `ip:${getClientIp(request)}`]) {
     const rl = await checkRateLimit(id, { key: 'mfa', limit: 10, windowMs: 15 * 60 * 1000 });
-    if (!rl.allowed) return fail(429, 'rate_limited', 'Too many attempts. Wait a few minutes and try again.');
+    if (!rl.allowed) {
+      void recordEvent(request, { type: 'rate_limited', uid, email, summary: 'Too many two-step sign-in attempts', details: { action } });
+      return fail(429, 'rate_limited', 'Too many attempts. Wait a few minutes and try again.');
+    }
   }
 
   let body: { code?: string } = {};
@@ -59,15 +63,23 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
   if (!user) return fail(404, 'no_user', 'Sign in again and retry.');
   const mfa: Mfa = user.mfa ?? {};
 
+  let usedBackup = false;
   const checkCode = (allowBackup: boolean): boolean => {
     if (!mfa.secretEnc) return false;
     const step = checkTotp(openSecret(mfa.secretEnc), code, mfa.lastStep);
     if (step !== null) { user.set('mfa.lastStep', step); return true; }
     if (allowBackup) {
       const i = matchBackupCode(code, mfa.backupCodes ?? []);
-      if (i >= 0) { user.set('mfa.backupCodes', (mfa.backupCodes ?? []).filter((_, j) => j !== i)); return true; }
+      if (i >= 0) { user.set('mfa.backupCodes', (mfa.backupCodes ?? []).filter((_, j) => j !== i)); usedBackup = true; return true; }
     }
+    void recordEvent(request, { type: 'mfa_failed', uid, email, details: { action } });
     return false;
+  };
+  const backupNote = async () => {
+    if (!usedBackup) return;
+    const left = (user.mfa?.backupCodes ?? []).length;
+    await recordEvent(request, { type: 'backup_code_used', uid, email, details: { left } });
+    await notifyUser(email, 'A backup code was used on your SecureVoult account', `One of your two-step backup codes was just used to sign in. You have ${left} left.${left <= 2 ? ' Make a new set soon in Settings → Security.' : ''}`);
   };
 
   switch (action) {
@@ -88,6 +100,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
       const codes = newBackupCodes();
       user.set('mfa', { enabled: true, secretEnc: mfa.pendingSecretEnc, pendingSecretEnc: null, lastStep: step, backupCodes: codes.hashed, enabledAt: new Date() });
       await user.save();
+      await recordEvent(request, { type: 'mfa_enabled', uid, email });
+      void notifyUser(email, 'Two-step sign-in is now on', 'Two-step sign-in was turned on for your SecureVoult account. New devices will now ask for a code from your authenticator app.');
       return json({ token: authTime ? issueMfaToken(uid, authTime) : null, backupCodes: codes.plain });
     }
 
@@ -96,6 +110,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
       if (!authTime) return fail(400, 'no_session', 'Sign in again and retry.');
       if (!checkCode(true)) return fail(400, 'wrong_code', 'That code is not right.');
       await user.save();
+      await recordEvent(request, { type: 'mfa_verified', uid, email, details: { backupCode: usedBackup } });
+      await backupNote();
       return json({ token: issueMfaToken(uid, authTime), backupCodesLeft: (user.mfa?.backupCodes ?? []).length });
     }
 
@@ -104,6 +120,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
       if (!checkCode(true)) return fail(400, 'wrong_code', 'That code is not right.');
       user.set('mfa', { enabled: false, secretEnc: null, pendingSecretEnc: null, lastStep: null, backupCodes: [], enabledAt: null });
       await user.save();
+      await recordEvent(request, { type: 'mfa_disabled', uid, email });
+      void notifyUser(email, 'Two-step sign-in was turned off', 'Two-step sign-in was just turned off for your SecureVoult account. Your vault is still protected by your master password, but we recommend turning it back on in Settings → Security.');
       return json({ ok: true });
     }
 
@@ -113,6 +131,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ action
       const codes = newBackupCodes();
       user.set('mfa.backupCodes', codes.hashed);
       await user.save();
+      await recordEvent(request, { type: 'backup_codes_renewed', uid, email });
       return json({ backupCodes: codes.plain });
     }
   }

@@ -140,6 +140,7 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
             <span className={`font-medium truncate ${compact ? 'text-xs' : 'text-sm'}`}>{entry.website}</span>
             {entry.isFavorite && <Star className="w-3 h-3 text-yellow-400 flex-shrink-0 fill-yellow-400" />}
             {entry.totp && <span className="text-[10px] font-semibold px-1 rounded bg-primary/15 text-primary flex-shrink-0" title="Has 2FA codes">2FA</span>}
+            {!!entry.passkeys?.length && <span className="text-[10px] font-semibold px-1 rounded bg-emerald-500/15 text-emerald-300 flex-shrink-0" title="Has a passkey">Passkey</span>}
             <Badge variant="outline" className="text-xs h-4 px-1.5 flex-shrink-0 hidden sm:flex">{entry.category}</Badge>
           </div>
           {entry.username && entryType !== 'note' && entryType !== 'wifi' && (

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Database, Shield, Zap, Package, CheckCircle2, AlertTriangle, XCircle, Archive, HardDrive, Paperclip } from 'lucide-react';
+import { Loader2, RefreshCw, Database, Shield, Zap, Package, CheckCircle2, AlertTriangle, XCircle, Archive, HardDrive, Paperclip, ShieldAlert, Mail, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AuthService } from '@/lib/auth';
 import { useToast } from '@/components/ui/use-toast';
@@ -18,6 +18,9 @@ interface HealthData {
     backups?: { visible: boolean; count: number; latestAt: string | null; latestBytes: number; totalBytes: number };
     disk?: { freeBytes: number; totalBytes: number } | null;
     files?: { count: number; bytes: number } | null;
+    email?: { configured: boolean };
+    securityEvents?: { critical24h: number };
+    dependencies?: { checkedAt: string; packages: number; error?: string; findings: { name: string; version: string; id: string; severity: string; summary: string; fixed?: string; url: string }[] } | null;
   };
   build: {
     version: string;
@@ -39,6 +42,7 @@ function StatusIcon({ status }: { status: 'ok' | 'warn' | 'error' }) {
 export function AdminSystemHealth() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
   const { toast } = useToast();
 
   const load = async () => {
@@ -56,6 +60,17 @@ export function AdminSystemHealth() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const scanNow = async () => {
+    setScanning(true);
+    try {
+      const token = await AuthService.getIdToken();
+      const res = await fetch('/api/admin/system-health', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      toast({ title: data.success ? 'Security update check finished' : 'Check could not finish', description: data.message || (data.scan ? `${data.scan.findings.length} issue(s) in ${data.scan.packages} packages` : undefined), variant: data.success ? undefined : 'destructive' });
+      await load();
+    } catch { toast({ title: 'Check failed', variant: 'destructive' }); } finally { setScanning(false); }
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -116,6 +131,27 @@ export function AdminSystemHealth() {
       status: 'ok' as 'ok' | 'warn' | 'error',
       detail: health.checks.files.count === 0 ? 'None stored yet' : `${health.checks.files.count} file${health.checks.files.count === 1 ? '' : 's'} · ${size(health.checks.files.bytes)} stored`,
     }] : []),
+    (() => {
+      const d = health.checks.dependencies;
+      const serious = d?.findings.filter((f) => f.severity === 'HIGH' || f.severity === 'CRITICAL').length ?? 0;
+      return {
+        label: 'Security updates',
+        icon: ShieldAlert,
+        status: (!d ? 'warn' : d.error ? 'warn' : serious ? 'error' : d.findings.length ? 'warn' : 'ok') as 'ok' | 'warn' | 'error',
+        detail: !d ? 'Not checked yet: runs a few minutes after each start, then every 6 hours'
+          : d.error ? `Last check failed: ${d.error}`
+          : d.findings.length === 0 ? `No known problems in ${d.packages} packages · checked ${formatDistanceToNow(new Date(d.checkedAt), { addSuffix: true })}`
+          : `${d.findings.length} known issue${d.findings.length === 1 ? '' : 's'} (${serious} serious) in ${d.packages} packages · checked ${formatDistanceToNow(new Date(d.checkedAt), { addSuffix: true })}`,
+      };
+    })(),
+    {
+      label: 'Email alerts',
+      icon: Mail,
+      status: (health.checks.email?.configured ? 'ok' : 'warn') as 'ok' | 'warn' | 'error',
+      detail: health.checks.email?.configured
+        ? `On · ${health.checks.securityEvents?.critical24h ?? 0} critical event${health.checks.securityEvents?.critical24h === 1 ? '' : 's'} in the last 24 hours (Security log)`
+        : 'Off: add the SMTP settings (same as the CRM) to .env.local and deploy',
+    },
     {
       label: 'Rate limiting',
       icon: Zap,
@@ -180,6 +216,33 @@ export function AdminSystemHealth() {
         ))}
       </div>
 
+      {/* Security updates detail */}
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Package security check</p>
+            <p className="text-xs text-muted-foreground">Every package the server runs, checked against the osv.dev vulnerability database. Serious findings are emailed.</p>
+          </div>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 flex-shrink-0" onClick={scanNow} disabled={scanning}>
+            {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5" />}Check now
+          </Button>
+        </div>
+        {health?.checks.dependencies?.findings.length ? (
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {health.checks.dependencies.findings.map((f) => (
+              <li key={f.id + f.name} className="flex items-start gap-3 px-3 py-2.5 text-xs">
+                <span className={`px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'bg-red-500/15 text-red-400' : 'bg-amber-500/15 text-amber-300'}`}>{f.severity.toLowerCase()}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="font-mono">{f.name} {f.version}</span>{f.fixed ? <span className="text-emerald-400"> → update to {f.fixed}</span> : null}
+                  <span className="block text-muted-foreground">{f.summary}</span>
+                </span>
+                <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground flex-shrink-0" aria-label={`Details for ${f.id}`}><ExternalLink className="w-3.5 h-3.5" /></a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+
       {/* Info */}
       <div className="bg-card border border-border rounded-xl p-4 space-y-2">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Notes</p>
@@ -187,6 +250,7 @@ export function AdminSystemHealth() {
           <li>The database is backed up every night on the server; the last 14 are kept. Vaults and files in them stay encrypted.</li>
           <li>Backups live on the same server. For off-site protection, copy the backups folder somewhere else from time to time.</li>
           <li>Rate limits are kept in memory, which is right for one server. Add Upstash Redis only if you run several app servers.</li>
+          <li>To apply security updates: run <span className="font-mono">npm update</span> (or the version shown) on your PC, then commit and deploy. GitHub also opens update pull requests weekly (Dependabot).</li>
           <li>No secrets or environment values are shown here, only whether things are set up.</li>
         </ul>
       </div>

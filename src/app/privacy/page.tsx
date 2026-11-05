@@ -6,7 +6,7 @@ export const metadata = {
   description: 'What SecureVoult stores, why, for how long, and your rights under UK GDPR.',
 };
 
-const who = [LEGAL.company, LEGAL.companyNumber && `company number ${LEGAL.companyNumber}`, LEGAL.address].filter(Boolean).join(', ');
+const who = [LEGAL.company, LEGAL.companyNumber, LEGAL.address].filter(Boolean).join(', ');
 
 const sections = [
   {
@@ -15,7 +15,7 @@ const sections = [
     content: (
       <>
         <P>{LEGAL.product} is a password manager made and run by <strong>{who}</strong> (&quot;Autisync&quot;, &quot;we&quot;, &quot;us&quot;). This policy covers the web app at <strong>{LEGAL.site}</strong>, the browser extension and any SecureVoult apps.</P>
-        <P>For your account data, Autisync is the <strong>data controller</strong> under the UK GDPR and the Data Protection Act 2018.{LEGAL.icoNumber ? <> Our ICO registration number is <strong>{LEGAL.icoNumber}</strong>.</> : null} If you use SecureVoult through your employer&apos;s company plan, your employer is the controller for that use and we act as its processor (see the <a href="/dpa" className="underline underline-offset-2">Data Processing Agreement</a>).</P>
+        <P>For your account data, we are the <strong>data controller</strong>. We follow the UK GDPR and Data Protection Act 2018, the EU GDPR for people in the EU, and Angola&apos;s data protection law (Lei n.º 22/11).{LEGAL.icoNumber ? <> Our ICO registration number is <strong>{LEGAL.icoNumber}</strong>.</> : null} If you use SecureVoult through your employer&apos;s company plan, your employer is the controller for that use and we act as its processor (see the <a href="/dpa" className="underline underline-offset-2">Data Processing Agreement</a>).</P>
         <InfoBox color="green">
           <strong>The short version:</strong> your vault and your files are encrypted on your own device with a key made from your master password. We store only the locked copy and cannot open it. Your master password and recovery key never reach us.
         </InfoBox>
@@ -115,7 +115,7 @@ const sections = [
       <>
         <P>You can ask us to give you a copy of your data, correct it, delete it, restrict or object to how we use it, or give it to you in a portable format. You can export your vault yourself at any time from Settings → Import / Export.</P>
         <P>To make a request, email <strong>{LEGAL.email}</strong> from your account&apos;s address. We reply within one month. We may ask you to confirm it&apos;s you before acting.</P>
-        <P>If you are unhappy with how we handle your data, you can complain to the <a href="https://ico.org.uk/make-a-complaint/" className="underline underline-offset-2" target="_blank" rel="noopener noreferrer">Information Commissioner&apos;s Office</a>. We&apos;d appreciate the chance to put it right first.</P>
+        <P>If you are unhappy with how we handle your data, you can complain to the data protection authority where you live: in the UK the <a href="https://ico.org.uk/make-a-complaint/" className="underline underline-offset-2" target="_blank" rel="noopener noreferrer">Information Commissioner&apos;s Office</a>, in Portugal the <a href="https://www.cnpd.pt" className="underline underline-offset-2" target="_blank" rel="noopener noreferrer">CNPD</a>, in Angola the Agência de Protecção de Dados (APD). We&apos;d appreciate the chance to put it right first.</P>
       </>
     ),
   },

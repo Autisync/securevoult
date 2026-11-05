@@ -62,6 +62,21 @@ export interface Attachment {
   addedAt: string;
 }
 
+/** A website passkey kept in the vault (the private key never leaves the encrypted vault). */
+export interface PasskeyCredential {
+  credentialId: string; // base64url
+  rpId: string;
+  rpName?: string;
+  userHandle: string; // base64url
+  userName: string;
+  userDisplayName?: string;
+  privateKey: string; // PKCS#8, base64url
+  alg: -7;
+  counter: number;
+  createdAt: string;
+  lastUsedAt?: string;
+}
+
 export interface PasswordEntry {
   id: string;
   type: VaultItemType;
@@ -81,6 +96,7 @@ export interface PasswordEntry {
   wifi?: WifiDetails;
   fields?: CustomField[];
   attachments?: Attachment[];
+  passkeys?: PasskeyCredential[];
   /** Previous passwords, newest first (kept 10). */
   passwordHistory?: { password: string; changedAt: string }[];
   category: string;

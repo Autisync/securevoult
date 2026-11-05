@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SecureVoult",
-  "version": "1.1.0",
-  "description": "Zero-knowledge password manager: Argon2id + AES-256, autofill, 2FA codes and breach monitoring",
+  "version": "1.2.0",
+  "description": "SecureVoult by Autisync: zero-knowledge password manager with autofill, 2FA codes, passkeys and breach alerts",
   "permissions": [
     "storage",
     "activeTab",
@@ -33,6 +33,17 @@
       ],
       "run_at": "document_end",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "https://*/*"
+      ],
+      "js": [
+        "passkey-page.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
     }
   ],
   "icons": {

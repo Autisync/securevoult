@@ -74,14 +74,17 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
     const entries = vault.entries;
     const results: SecurityIssue[] = [];
     const passwordCounts = new Map<string, number>();
+    // Only items that have a password: cards, notes, bank details and passkey-only logins are not "weak" or "reused".
+    const hasPassword = (e: PasswordEntry) => !!e.password && ['login', 'wifi'].includes(e.type ?? 'login');
     for (const e of entries) {
-      passwordCounts.set(e.password, (passwordCounts.get(e.password) ?? 0) + 1);
+      if (hasPassword(e)) passwordCounts.set(e.password, (passwordCounts.get(e.password) ?? 0) + 1);
     }
     const now = Date.now();
     const ninetyDays  = 90  * 24 * 60 * 60 * 1000;
     const oneEightyDays = 180 * 24 * 60 * 60 * 1000;
 
     for (const entry of entries) {
+      if (!hasPassword(entry)) continue;
       const entryIssues: string[] = [];
       let severity: SecurityIssue['severity'] = 'low';
       const strength = CryptoService.checkPasswordStrength(entry.password);

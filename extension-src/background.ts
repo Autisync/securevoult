@@ -15,7 +15,8 @@ import { VaultService, readLocalVault, saveVault } from '@/lib/vault';
 import { baseDomain } from '@/lib/domain';
 import { importRawKey, type KeyHeader, type VaultKey } from '@/lib/vault-crypto';
 import { parseTotp, totpNow } from '@/lib/totp';
-import type { PasswordEntry } from '@/types/vault';
+import type { PasswordEntry, PasskeyCredential } from '@/types/vault';
+import { createPasskey, signAssertion, clientDataJSON, rpIdAllowed, fromB64url, b64url } from '@/lib/vault-passkeys';
 
 interface Session { key: string; header: KeyHeader; autoLockMinutes: number }
 interface Pending { token: string; site: string; url: string; title: string; username: string; password: string; entryId?: string; at: number }
@@ -104,6 +105,28 @@ async function openUnlock() {
   } catch {
     await chrome.windows.create({ url: chrome.runtime.getURL('popup.html'), type: 'popup', width: 380, height: 620 });
   }
+}
+
+// ── passkeys ─────────────────────────────────────────────────────────────────
+
+type Plain = Record<string, any>;
+const bin = (v: unknown): Uint8Array | null => (v && typeof v === 'object' && typeof (v as Plain).$b === 'string' ? fromB64url((v as Plain).$b) : null);
+
+/** The passkey request's site, checked against the frame Chrome says made it. */
+function passkeyContext(sender: chrome.runtime.MessageSender, publicKey: Plain, kind: 'create' | 'get') {
+  let url: URL;
+  try { url = new URL(sender.url ?? ''); } catch { return null; }
+  if (url.protocol !== 'https:' && url.hostname !== 'localhost') return null;
+  const host = url.hostname;
+  const rpId = String((kind === 'create' ? publicKey.rp?.id : publicKey.rpId) ?? host).toLowerCase();
+  if (!rpIdAllowed(rpId, host, baseDomain(host))) return null;
+  let top: string | undefined;
+  try { top = sender.tab?.url ? new URL(sender.tab.url).origin : undefined; } catch { /* ignore */ }
+  return { rpId, origin: url.origin, top };
+}
+
+function passkeysFor(entries: PasswordEntry[], rpId: string): { entry: PasswordEntry; pk: PasskeyCredential }[] {
+  return entries.flatMap((entry) => (entry.passkeys ?? []).filter((pk) => pk.rpId === rpId).map((pk) => ({ entry, pk })));
 }
 
 // ── messages ─────────────────────────────────────────────────────────────────
@@ -223,6 +246,83 @@ async function handle(msg: Msg, sender: chrome.runtime.MessageSender): Promise<u
     case 'sv:unlock':
       await openUnlock();
       return { ok: true };
+
+    // What to show for a passkey request (nothing is created or signed here).
+    case 'sv:pkCheck': {
+      const kind = msg.kind === 'create' ? 'create' : 'get';
+      const pkOpts = (msg.publicKey ?? {}) as Plain;
+      const ctx = passkeyContext(sender, pkOpts, kind);
+      if (!ctx) return { fallback: true };
+      if (kind === 'create' && !(pkOpts.pubKeyCredParams ?? []).some((p: Plain) => p?.alg === -7)) return { fallback: true };
+      const v = await unlockedVault();
+      if (!v) return { locked: true, rpId: ctx.rpId, userName: pkOpts.user?.name ?? '' };
+      const mine = passkeysFor(v.entries, ctx.rpId);
+      if (kind === 'create') {
+        const excluded = new Set((pkOpts.excludeCredentials ?? []).map((c: Plain) => bin(c.id)).filter(Boolean).map((b: Uint8Array) => b64url(b)));
+        return { rpId: ctx.rpId, rpName: pkOpts.rp?.name ?? ctx.rpId, userName: pkOpts.user?.name ?? '', exists: mine.some(({ pk }) => excluded.has(pk.credentialId)) };
+      }
+      const allow = new Set((pkOpts.allowCredentials ?? []).map((c: Plain) => bin(c.id)).filter(Boolean).map((b: Uint8Array) => b64url(b)));
+      const items = mine.filter(({ pk }) => !allow.size || allow.has(pk.credentialId))
+        .map(({ entry, pk }) => ({ id: pk.credentialId, userName: pk.userName || entry.username, title: entry.website }));
+      return { rpId: ctx.rpId, items };
+    }
+
+    case 'sv:pkCreate': {
+      const pkOpts = (msg.publicKey ?? {}) as Plain;
+      const ctx = passkeyContext(sender, pkOpts, 'create');
+      if (!ctx) return { fallback: true };
+      const v = await unlockedVault();
+      if (!v || !v.vault) return { error: { name: 'NotAllowedError', message: 'SecureVoult is locked.' } };
+      const challenge = bin(pkOpts.challenge), userHandle = bin(pkOpts.user?.id);
+      if (!challenge || !userHandle) return { error: { name: 'TypeError', message: 'The passkey request is incomplete.' } };
+      const excluded = new Set((pkOpts.excludeCredentials ?? []).map((c: Plain) => bin(c.id)).filter(Boolean).map((b: Uint8Array) => b64url(b)));
+      if (passkeysFor(v.entries, ctx.rpId).some(({ pk }) => excluded.has(pk.credentialId))) {
+        return { error: { name: 'InvalidStateError', message: 'This passkey is already saved in SecureVoult.' } };
+      }
+      const userName = String(pkOpts.user?.name ?? '');
+      const made = await createPasskey({ rpId: ctx.rpId, rpName: pkOpts.rp?.name, userHandle, userName, userDisplayName: pkOpts.user?.displayName });
+      const cd = clientDataJSON('webauthn.create', challenge, ctx.origin, ctx.top);
+
+      // Kept with this site's login for the same account, or as a new item.
+      const site = baseDomain(ctx.rpId);
+      const same = forSite(v.entries, site).find((e) => e.username.toLowerCase() === userName.toLowerCase())
+        ?? v.entries.find((e) => (e.passkeys ?? []).some((pk) => pk.rpId === ctx.rpId && pk.userName === userName));
+      const vault = same
+        ? VaultService.updateEntry(v.vault.vault, same.id, { passkeys: [...(same.passkeys ?? []), made.passkey] })
+        : VaultService.addEntry(v.vault.vault, {
+          type: 'login', website: String(pkOpts.rp?.name || ctx.rpId).slice(0, 80), url: `https://${ctx.rpId}`,
+          username: userName, password: '', category: 'Other', passkeys: [made.passkey],
+        });
+      await authReady().catch(() => {});
+      await saveVault(vault, v.key, v.vault.serverVersion);
+      return {
+        credential: {
+          id: made.passkey.credentialId, clientDataJSON: b64url(cd), attestationObject: b64url(made.attestationObject),
+          authenticatorData: b64url(made.authenticatorData), publicKey: b64url(made.publicKeySpki),
+          extensions: pkOpts.extensions?.credProps ? { credProps: { rk: true } } : {},
+        },
+      };
+    }
+
+    case 'sv:pkGet': {
+      const pkOpts = (msg.publicKey ?? {}) as Plain;
+      const ctx = passkeyContext(sender, pkOpts, 'get');
+      if (!ctx) return { fallback: true };
+      const v = await unlockedVault();
+      if (!v) return { error: { name: 'NotAllowedError', message: 'SecureVoult is locked.' } };
+      const challenge = bin(pkOpts.challenge);
+      if (!challenge) return { error: { name: 'TypeError', message: 'The passkey request is incomplete.' } };
+      const found = passkeysFor(v.entries, ctx.rpId).find(({ pk }) => pk.credentialId === msg.credentialId);
+      if (!found) return { error: { name: 'NotAllowedError', message: 'That passkey is not in SecureVoult.' } };
+      const cd = clientDataJSON('webauthn.get', challenge, ctx.origin, ctx.top);
+      const signed = await signAssertion(found.pk, cd);
+      return {
+        credential: {
+          id: found.pk.credentialId, clientDataJSON: b64url(cd), authenticatorData: b64url(signed.authenticatorData),
+          signature: b64url(signed.signature), userHandle: found.pk.userHandle, extensions: {},
+        },
+      };
+    }
   }
   return { error: 'unknown action' };
 }

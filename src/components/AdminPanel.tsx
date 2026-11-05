@@ -14,6 +14,8 @@ import { AdminResolutionCenter } from '@/components/admin/AdminResolutionCenter'
 import { AdminSystemHealth } from '@/components/admin/AdminSystemHealth';
 import { AdminCompanies } from '@/components/admin/AdminCompanies';
 import { AdminSessions } from '@/components/admin/AdminSessions';
+import { readRoute, writeRoute } from '@/lib/route';
+import { AdminSecurityLog } from '@/components/admin/AdminSecurityLog';
 import {
   LayoutDashboard, Users, Shield, Activity, ShieldAlert, AlertTriangle,
   Globe, LogOut, Loader2, Search, Chrome, Package, Info, ChevronRight,
@@ -286,7 +288,12 @@ function ExtensionSection() {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function AdminPanel({ onBackToVault, onViewPublicSite }: AdminPanelProps) {
-  const [section, setSection] = useState<Section>('overview');
+  const [section, setSection] = useState<Section>(() => {
+    const r = readRoute();
+    const all: Section[] = ['overview', 'companies', 'users', 'sessions', 'breach', 'resolution', 'audit', 'health', 'extension'];
+    return r[0] === 'admin' && all.includes(r[1] as Section) ? (r[1] as Section) : 'overview';
+  });
+  useEffect(() => { writeRoute(['admin', section]); }, [section]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [activities, setActivities] = useState<AdminActivity[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -297,7 +304,6 @@ export function AdminPanel({ onBackToVault, onViewPublicSite }: AdminPanelProps)
 
   useEffect(() => {
     if (section === 'users' && users.length === 0) loadUsers();
-    if (section === 'audit' && activities.length === 0) loadActivities();
   }, [section]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const adminFetch = async (endpoint: string, options: RequestInit = {}) => {
@@ -362,7 +368,7 @@ export function AdminPanel({ onBackToVault, onViewPublicSite }: AdminPanelProps)
     { id: 'companies',  label: 'Companies',         icon: Building2,       group: 'main' },
     { id: 'users',      label: 'Users',             icon: Users,           group: 'main' },
     { id: 'sessions',   label: 'Sessions',          icon: Monitor,         group: 'main' },
-    { id: 'audit',      label: 'Audit log',         icon: Activity,        group: 'main' },
+    { id: 'audit',      label: 'Security log',      icon: Activity,        group: 'main' },
     { id: 'breach',     label: 'Breach Center',     icon: ShieldAlert,     group: 'ops' },
     { id: 'resolution', label: 'Resolution Center', icon: AlertTriangle,   group: 'ops' },
     { id: 'health',     label: 'System Health',     icon: HeartPulse,      group: 'system' },
@@ -543,48 +549,8 @@ export function AdminPanel({ onBackToVault, onViewPublicSite }: AdminPanelProps)
             </div>
           )}
 
-          {/* Audit log */}
-          {section === 'audit' && (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">Audit log</h2>
-                  <p className="text-sm text-muted-foreground">Admin action history.</p>
-                </div>
-                <Button variant="outline" size="sm" className="h-8" onClick={loadActivities}>
-                  <Activity className="w-3.5 h-3.5 mr-1.5" />Refresh
-                </Button>
-              </div>
-
-              {auditLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : activities.length === 0 ? (
-                <div className="text-center py-10 text-sm text-muted-foreground">No activities recorded yet.</div>
-              ) : (
-                <div className="space-y-2">
-                  {activities.map(act => (
-                    <div key={act.id} className="flex items-start gap-3 px-4 py-3 bg-card border border-border rounded-xl">
-                      <Activity className="w-4 h-4 mt-0.5 text-muted-foreground/50 flex-shrink-0" />
-                      <div className="flex-1 min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium">{act.admin?.displayName || act.admin?.email || 'Unknown'}</span>
-                          <span className={['text-[10px] px-1.5 py-0.5 rounded font-medium', ACTION_COLORS[act.action] ?? 'bg-secondary text-muted-foreground'].join(' ')}>
-                            {act.action.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                        {act.target && (
-                          <p className="text-xs text-muted-foreground">Target: {act.target?.displayName || act.target?.email || 'Unknown'}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground/50">{new Date(act.timestamp).toLocaleString()} · {act.ipAddress}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Security log */}
+          {section === 'audit' && <AdminSecurityLog />}
 
           {/* Extension */}
           {section === 'extension' && <ExtensionSection />}

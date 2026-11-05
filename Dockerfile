@@ -33,6 +33,8 @@ RUN useradd --uid 10001 --create-home app
 COPY --from=build --chown=app:app /app/.next/standalone ./
 COPY --from=build --chown=app:app /app/.next/static ./.next/static
 COPY --from=build --chown=app:app /app/public ./public
+# The package list, so the server can check its own packages for security updates.
+COPY --from=build --chown=app:app /app/package-lock.json ./package-lock.json
 USER app
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

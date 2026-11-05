@@ -5,12 +5,12 @@
 export const LEGAL = {
   product: 'SecureVoult',
   /** Legal name of the business, e.g. "Autisync Ltd" if it is a company. */
-  company: 'Autisync',
+  company: 'MAHELDOM CONSULTING, LDA., trading as Autisync',
   /** Companies House number, if a limited company. */
-  companyNumber: '',
+  companyNumber: 'registered in Angola, NIF 5003472418, matrícula 41063-26/260824',
   /** Registered office or trading address. */
-  address: '',
-  /** ICO data protection fee registration number. */
+  address: 'Edifício do Shopping Jardim do Patriota, Rua Lar do Patriota, Bairro Patriota, Talatona, Luanda, Angola',
+  /** UK ICO data protection fee registration number, if registered. */
   icoNumber: '',
   /** Where privacy, legal and security emails go. */
   email: 'admin@autisync.com',

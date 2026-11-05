@@ -121,6 +121,9 @@ import { baseDomain } from '@/lib/domain';
     .row button.primary:hover { background: #B28228; }
     .row button.ghost { border: 1px solid #333434; color: #CFC8BA; }
     .row button:focus-visible { outline: 2px solid #E3C27A; outline-offset: 2px; }
+    .card .head { padding: 0 0 8px; }
+    .card button.item { margin: 0 0 6px; background: #232424; }
+    .row button.ghost:hover { background: #232424; }
     .toast { position: fixed; right: 18px; bottom: 18px; background: #1A1B1B; color: #F4F1EA; border: 1px solid #333434;
       border-radius: 12px; padding: 10px 14px; box-shadow: 0 10px 26px rgba(0,0,0,.45); }
     svg { flex-shrink: 0; }
@@ -268,6 +271,113 @@ import { baseDomain } from '@/lib/domain';
     const scope = scopeOf(t);
     if (passwordsIn(scope).some((p) => p.value)) void captured(scope);
   }, true);
+
+  // ── passkeys (asked by the page bridge, passkey-page.ts) ──────────────────
+
+  const PK = 'securevoult-passkey';
+  type PkResult = { fallback?: boolean; error?: { name: string; message?: string }; credential?: unknown };
+  const markIcon = '<svg width="18" height="20" viewBox="8 6 48 52" aria-hidden="true"><path d="M22 26.5V20a10 10 0 0 1 20 0v6.5" fill="none" stroke="#CDA24C" stroke-width="5.2" stroke-linecap="round"/><path fill-rule="evenodd" d="M13.5 26.5h37a1.6 1.6 0 0 1 1.35 2.45L33.4 56.1a1.65 1.65 0 0 1-2.8 0L12.15 28.95a1.6 1.6 0 0 1 1.35-2.45zM25 32.5h14L32 44.2z" fill="#CDA24C"/></svg>';
+  let pkBusy = false;
+
+  /** A trusted (real) click only: pages can't press SecureVoult's buttons for you. */
+  const onTrusted = (b: HTMLElement, fn: () => void) => b.addEventListener('click', (e) => { if (e.isTrusted) fn(); });
+
+  function pkCard(title: string, lines: string[]): { card: HTMLElement; row: HTMLElement } {
+    attach();
+    root.querySelector('.card')?.remove();
+    const card = el('div', 'card');
+    const h = el('div', 'head');
+    h.innerHTML = markIcon;
+    h.appendChild(el('b', '', 'SecureVoult'));
+    card.appendChild(h);
+    card.appendChild(el('h2', '', title));
+    for (const l of lines) card.appendChild(el('p', '', l));
+    const row = el('div', 'row');
+    card.appendChild(row);
+    root.appendChild(card);
+    return { card, row };
+  }
+
+  async function waitForUnlock(kind: string, publicKey: unknown): Promise<any> {
+    for (let i = 0; i < 80; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const c = await send<any>({ action: 'sv:pkCheck', kind, publicKey });
+      if (c && !c.locked) return c;
+    }
+    return null;
+  }
+
+  function passkeyFlow(kind: 'create' | 'get', publicKey: Record<string, any>): Promise<PkResult> {
+    return new Promise((done) => {
+      let finished = false;
+      const finish = (r: PkResult) => { if (finished) return; finished = true; root.querySelector('.card')?.remove(); pkBusy = false; done(r); };
+      const cancel = () => finish({ error: { name: 'NotAllowedError', message: 'The request was cancelled.' } });
+      setTimeout(cancel, 3 * 60 * 1000);
+
+      const render = (c: any) => {
+        const site = c.rpName && c.rpName !== c.rpId ? `${c.rpName} (${c.rpId})` : c.rpId;
+        if (c.locked) {
+          const { row } = pkCard(kind === 'create' ? 'Save a passkey in SecureVoult?' : 'Sign in with a SecureVoult passkey?', [`${site}`, 'SecureVoult is locked. Unlock it to continue.']);
+          const other = el('button', 'ghost', 'Use another device'); const unlock = el('button', 'primary', 'Unlock');
+          onTrusted(other, () => finish({ fallback: true }));
+          onTrusted(unlock, async () => {
+            unlock.textContent = 'Waiting…';
+            void send({ action: 'sv:unlock' });
+            const next = await waitForUnlock(kind, publicKey);
+            if (finished) return;
+            if (!next) cancel(); else render(next);
+          });
+          row.append(other, unlock);
+          return;
+        }
+        if (kind === 'create') {
+          if (c.exists) { toast('This passkey is already saved in SecureVoult.'); finish({ error: { name: 'InvalidStateError', message: 'Already saved.' } }); return; }
+          const { row } = pkCard('Save a passkey?', [`For ${site}`, `${c.userName ? `${c.userName} · ` : ''}kept in your encrypted vault and synced to your devices.`]);
+          const other = el('button', 'ghost', 'Use another device'); const save = el('button', 'primary', 'Save passkey');
+          onTrusted(other, () => finish({ fallback: true }));
+          onTrusted(save, async () => {
+            save.textContent = 'Saving…';
+            const r = await send<PkResult>({ action: 'sv:pkCreate', publicKey });
+            if (r?.credential) toast('Passkey saved in SecureVoult');
+            finish(r ?? { error: { name: 'NotAllowedError', message: 'SecureVoult did not answer.' } });
+          });
+          row.append(other, save);
+          return;
+        }
+        // Sign in
+        const items: { id: string; userName: string; title: string }[] = c.items ?? [];
+        if (!items.length) { finish({ fallback: true }); return; }
+        const { card, row } = pkCard('Sign in with a passkey', [`${site}`]);
+        for (const it of items.slice(0, 6)) {
+          const b = el('button', 'item') as HTMLButtonElement;
+          b.appendChild(el('span', 't', it.userName || it.title));
+          b.appendChild(el('span', 'u', `Passkey · ${it.title}`));
+          onTrusted(b, async () => {
+            const r = await send<PkResult>({ action: 'sv:pkGet', publicKey, credentialId: it.id });
+            finish(r ?? { error: { name: 'NotAllowedError', message: 'SecureVoult did not answer.' } });
+          });
+          card.insertBefore(b, row);
+        }
+        const other = el('button', 'ghost', 'Use another device');
+        onTrusted(other, () => finish({ fallback: true }));
+        row.append(other);
+      };
+
+      void send<any>({ action: 'sv:pkCheck', kind, publicKey }).then((c) => {
+        if (!c || c.fallback) { finish({ fallback: true }); return; }
+        render(c);
+      });
+    });
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e.source !== window || e.data?.channel !== PK || e.data.dir !== 'ask' || typeof e.data.id !== 'string') return;
+    const { id, kind, publicKey } = e.data;
+    window.postMessage({ channel: PK, dir: 'ack', id }, location.origin);
+    if (pkBusy) { window.postMessage({ channel: PK, dir: 'reply', id, result: { error: { name: 'NotAllowedError', message: 'Another passkey request is open.' } } }, location.origin); return; }
+    pkBusy = true;
+    void passkeyFlow(kind === 'create' ? 'create' : 'get', publicKey ?? {}).then((result) => window.postMessage({ channel: PK, dir: 'reply', id, result }, location.origin));
+  });
 
   // ── wiring ─────────────────────────────────────────────────────────────────
 

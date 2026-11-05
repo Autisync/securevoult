@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { recordEvent } from '@/lib/security-events';
 import connectDB from '@/lib/db-connect';
 import { User, AdminActivity } from '@/lib/models';
 import { requireVerifiedAdmin } from '@/lib/server-auth';
@@ -47,13 +48,7 @@ export async function GET(request: NextRequest) {
     User.countDocuments(query),
   ]);
 
-  await new AdminActivity({
-    adminFirebaseUid: verifiedUser.uid,
-    action: 'vault_accessed',
-    details: { page, limit, search, total },
-    ipAddress: getClientIp(request),
-    userAgent: request.headers.get('user-agent') ?? 'unknown',
-  }).save();
+  await recordEvent(request, { type: 'admin_viewed_users', actorUid: verifiedUser.uid, actorEmail: adminResult.adminEmail, details: { page, search: search || undefined, total } });
 
   return NextResponse.json({
     success: true,
@@ -124,6 +119,12 @@ export async function PUT(request: NextRequest) {
     ipAddress: getClientIp(request),
     userAgent: request.headers.get('user-agent') ?? 'unknown',
   }).save();
+  await recordEvent(request, {
+    type: role !== undefined ? 'admin_changed_role' : 'admin_changed_user',
+    uid: target.firebaseUid, email: target.email, actorUid: verifiedUser.uid, actorEmail: adminResult.adminEmail,
+    summary: role !== undefined ? `Role of ${target.email ?? target.firebaseUid} set to ${role}` : `${target.email ?? target.firebaseUid} ${isActive === false ? 'deactivated' : 'reactivated'}`,
+    details: { role, isActive },
+  });
 
   return NextResponse.json({
     success: true,

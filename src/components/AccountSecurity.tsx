@@ -274,3 +274,44 @@ export function DeviceUnlockSettings() {
     </div>
   );
 }
+
+// ── Recent security activity ────────────────────────────────────────────────
+
+interface ActivityRow { id: string; at: string; type: string; label: string; severity: string; ip?: string; country?: string; device?: string }
+
+/** Your last sign-ins and security changes, so you can spot anything you didn't do. */
+export function SecurityActivity() {
+  const [rows, setRows] = useState<ActivityRow[] | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    (async () => {
+      try {
+        const { AuthService } = await import('@/lib/auth');
+        const token = await AuthService.getIdToken();
+        const res = await fetch('/api/account/security-events', { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Could not load');
+        setRows(data.events ?? []);
+      } catch (e) { setError(e instanceof Error ? e.message : 'Could not load'); }
+    })();
+  }, []);
+  if (error) return <p className="text-sm text-muted-foreground">Recent activity isn&apos;t available right now.</p>;
+  if (!rows) return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" />Loading…</div>;
+  if (!rows.length) return <p className="text-sm text-muted-foreground">Nothing yet. Sign-ins and security changes will show here.</p>;
+  return (
+    <div className="space-y-3">
+      <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+        {rows.slice(0, 12).map((r) => (
+          <li key={r.id} className="flex items-start gap-3 px-3.5 py-2.5 bg-secondary/20">
+            <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${r.severity === 'critical' ? 'bg-red-400' : r.severity === 'warning' ? 'bg-amber-300' : 'bg-emerald-400'}`} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm">{r.label}</p>
+              <p className="text-xs text-muted-foreground tabular-nums">{new Date(r.at).toLocaleString()} · {r.device ?? 'Unknown device'} · {r.ip ?? '—'}{r.country ? ` (${r.country})` : ''}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted-foreground">Don&apos;t recognise something? Sign out other devices under Devices and change your account password. You&apos;re emailed when a new device signs in.</p>
+    </div>
+  );
+}

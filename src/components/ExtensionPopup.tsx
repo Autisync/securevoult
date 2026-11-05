@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LogoIcon } from '@/components/Logo';
+import { Logo, LogoIcon, LogoMark } from '@/components/Logo';
 import { useVault } from '@/contexts/VaultContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useClipboard } from '@/hooks/useClipboard';
@@ -14,7 +14,7 @@ import { PasswordEntry } from '@/types/vault';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Search, Key, Copy, ExternalLink, Plus, Settings, Lock, Check,
-  Globe, Save, ShieldCheck, X, Clock, Eye, EyeOff, Shield, Mail,
+  Globe, Save, ShieldCheck, X, Clock, Eye, EyeOff, Mail,
   LogIn, AlertCircle,
 } from 'lucide-react';
 
@@ -200,7 +200,7 @@ export function ExtensionPopup() {
   };
 
   const inputCls = 'w-full h-10 pl-9 pr-10 text-sm bg-white/5 border border-border/60 rounded-xl focus:outline-none focus:border-primary transition-all placeholder:text-muted-foreground/40';
-  const btnPrimary = 'h-10 w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all';
+  const btnPrimary = 'h-10 w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground text-sm font-semibold rounded-xl shadow-lg shadow-primary/15 active:scale-[.98] transition-all';
 
   if (authLoading) {
     return (
@@ -216,12 +216,10 @@ export function ExtensionPopup() {
       <div className="w-[360px] bg-background text-foreground flex flex-col">
         <div className="flex items-center justify-center px-4 pt-8 pb-2">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
-              <Shield className="w-7 h-7 text-primary" />
-            </div>
+            <div className="animate-in zoom-in-95 fade-in duration-500"><LogoMark px={56} tile /></div>
             <div className="text-center">
-              <h1 className="text-base font-bold tracking-tight">SecureVoult</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Sign in to access your vault</p>
+              <h1 className="text-lg font-semibold tracking-tight">Secure<span className="text-primary">Voult</span></h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Sign in with your SecureVoult account</p>
             </div>
           </div>
         </div>
@@ -253,7 +251,7 @@ export function ExtensionPopup() {
             {signInLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><LogIn className="w-4 h-4" />Sign in</>}
           </button>
           <div className="text-center pt-1">
-            <button type="button" onClick={openFullApp} className="text-[11px] text-muted-foreground hover:text-primary transition-colors">Forgot password? Open web app →</button>
+            <button type="button" onClick={openFullApp} className="text-[11px] text-muted-foreground hover:text-primary transition-colors">No account yet, or forgot your password? Open the web app</button>
           </div>
         </form>
       </div>
@@ -290,9 +288,7 @@ export function ExtensionPopup() {
           </div>
         ) : vaultMode === 'create' ? (
           <div className="flex flex-col items-center px-5 pt-7 pb-7">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center mb-4">
-              <ShieldCheck className="w-7 h-7 text-emerald-400" />
-            </div>
+            <div className="mb-4"><LogoMark px={52} tile /></div>
             <h2 className="text-sm font-bold mb-1">Set up your vault</h2>
             <p className="text-xs text-muted-foreground text-center mb-1 leading-relaxed">Create a master password to protect your vault.</p>
             <p className="text-[11px] text-yellow-500/80 text-center mb-5">You cannot recover this password — write it down.</p>
@@ -319,7 +315,7 @@ export function ExtensionPopup() {
                   <button type="button" onClick={() => setMasterPwConfirmShow(v => !v)} tabIndex={-1} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">{masterPwConfirmShow ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}</button>
                 </div>
               </div>
-              <button type="submit" disabled={masterPwLoading || vaultLoading || !masterPw || !masterPwConfirm} className="h-10 w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all">
+              <button type="submit" disabled={masterPwLoading || vaultLoading || !masterPw || !masterPwConfirm} className={btnPrimary}>
                 {(masterPwLoading || vaultLoading) ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><ShieldCheck className="w-4 h-4" />Create vault</>}
               </button>
             </form>
@@ -327,11 +323,9 @@ export function ExtensionPopup() {
           </div>
         ) : (
           <div className="flex flex-col items-center px-5 pt-7 pb-7">
-            <div className="w-14 h-14 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center mb-4">
-              <Lock className="w-7 h-7 text-primary" />
-            </div>
-            <h2 className="text-sm font-bold mb-1">Vault is locked</h2>
-            <p className="text-xs text-muted-foreground text-center mb-5">Enter your master password to unlock</p>
+            <div className="mb-4 animate-in zoom-in-95 fade-in duration-500"><LogoMark px={52} tile /></div>
+            <h2 className="text-base font-semibold mb-1">Unlock your vault</h2>
+            <p className="text-xs text-muted-foreground text-center mb-5">Your master password never leaves this device.</p>
             <form onSubmit={handleUnlockVault} className="w-full space-y-3">
               {(masterPwError || vaultError) && (
                 <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/25 rounded-lg px-3 py-2">
@@ -375,8 +369,8 @@ export function ExtensionPopup() {
   return (
     <div className="w-[360px] max-h-[560px] flex flex-col bg-background text-foreground">
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border/50">
-        <div className="flex items-center gap-2">
-          <LogoIcon size="sm" />
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Logo size="sm" showText={!tabInfo} />
           {tabInfo && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Globe className="w-3 h-3" />
@@ -432,7 +426,7 @@ export function ExtensionPopup() {
           {!pendingExpanded && <div className="px-3 pb-2.5 text-[11px] text-muted-foreground">{pendingEdit.username} · {pendingEdit.password.length} chars</div>}
           <div className="flex gap-2 px-3 pb-3">
             <button onClick={() => setPendingDismissed(true)} className="flex-1 text-[11px] text-muted-foreground border border-border/60 rounded-lg py-1.5 hover:bg-secondary/40 transition-colors">Not now</button>
-            <button onClick={handleSavePendingLogin} className="flex-[2] text-[11px] bg-primary text-white rounded-lg px-3 py-1.5 font-semibold hover:bg-primary/90 transition-colors">Save to vault</button>
+            <button onClick={handleSavePendingLogin} className="flex-[2] text-[11px] bg-primary text-primary-foreground rounded-lg px-3 py-1.5 font-semibold hover:bg-primary/90 transition-colors">Save to vault</button>
           </div>
         </div>
       )}
@@ -443,11 +437,15 @@ export function ExtensionPopup() {
             {searchQuery && <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-wider">{filteredEntries.length} result{filteredEntries.length !== 1 ? 's' : ''}</p>}
             <div className="space-y-0.5">
               {filteredEntries.map(entry => (
-                <div key={entry.id} className="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-secondary/60 transition-colors">
-                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${gradient(entry)} flex items-center justify-center flex-shrink-0`}><span className="text-xs font-bold text-white">{letter(entry)}</span></div>
-                  <div className="flex-1 min-w-0"><p className="text-xs font-medium truncate">{entry.website}</p><p className="text-[11px] text-muted-foreground truncate">{entry.username}</p></div>
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button onClick={() => handleAutoFill(entry)} title="Autofill" className="w-6 h-6 flex items-center justify-center rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors"><Key className="w-3 h-3" /></button>
+                <div key={entry.id} className="group flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-secondary/60 transition-colors animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <button onClick={() => handleAutoFill(entry)} title="Fill on this page" className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
+                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${gradient(entry)} flex items-center justify-center flex-shrink-0 shadow-sm`}><span className="text-xs font-bold text-white">{letter(entry)}</span></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium truncate flex items-center gap-1.5">{entry.website}{!!entry.passkeys?.length && <span className="text-[9px] font-semibold px-1 rounded bg-emerald-500/15 text-emerald-300">Passkey</span>}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{entry.username || 'No username'}</p>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <button onClick={() => copyToClipboard(entry.username, 'Username', entry.id)} title="Copy username" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Username' ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}</button>
                     <button onClick={() => copyToClipboard(entry.password, 'Password', entry.id)} title="Copy password" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Password' ? <Check className="w-3 h-3 text-green-400" /> : <Key className="w-3 h-3" />}</button>
                     {entry.totp && <button onClick={() => copyTotp(entry)} title="Copy 2FA code" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + '2FA code' ? <Check className="w-3 h-3 text-green-400" /> : <ShieldCheck className="w-3 h-3" />}</button>}
@@ -462,11 +460,15 @@ export function ExtensionPopup() {
             <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-wider flex items-center gap-1"><Clock className="w-2.5 h-2.5" />Recently used</p>
             <div className="space-y-0.5">
               {recentEntries.map(entry => (
-                <div key={entry.id} className="group flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-secondary/60 transition-colors">
-                  <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${gradient(entry)} flex items-center justify-center flex-shrink-0`}><span className="text-xs font-bold text-white">{letter(entry)}</span></div>
-                  <div className="flex-1 min-w-0"><p className="text-xs font-medium truncate">{entry.website}</p><p className="text-[11px] text-muted-foreground truncate">{entry.username}</p></div>
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button onClick={() => handleAutoFill(entry)} title="Autofill" className="w-6 h-6 flex items-center justify-center rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors"><Key className="w-3 h-3" /></button>
+                <div key={entry.id} className="group flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-secondary/60 transition-colors animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <button onClick={() => handleAutoFill(entry)} title="Fill on this page" className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
+                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${gradient(entry)} flex items-center justify-center flex-shrink-0 shadow-sm`}><span className="text-xs font-bold text-white">{letter(entry)}</span></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium truncate flex items-center gap-1.5">{entry.website}{!!entry.passkeys?.length && <span className="text-[9px] font-semibold px-1 rounded bg-emerald-500/15 text-emerald-300">Passkey</span>}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{entry.username || 'No username'}</p>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <button onClick={() => copyToClipboard(entry.username, 'Username', entry.id)} title="Copy username" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Username' ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}</button>
                     <button onClick={() => copyToClipboard(entry.password, 'Password', entry.id)} title="Copy password" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Password' ? <Check className="w-3 h-3 text-green-400" /> : <Key className="w-3 h-3" />}</button>
                     {entry.totp && <button onClick={() => copyTotp(entry)} title="Copy 2FA code" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + '2FA code' ? <Check className="w-3 h-3 text-green-400" /> : <ShieldCheck className="w-3 h-3" />}</button>}

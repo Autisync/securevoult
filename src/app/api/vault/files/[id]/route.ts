@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { VaultFile } from '@/lib/models';
 import { badRequest, apiError } from '@/lib/api-error';
 import { fileRequestUser, validFileId } from '@/lib/vault-files-server';
+import { recordEvent } from '@/lib/security-events';
 
 export const runtime = 'nodejs';
 
@@ -27,5 +28,6 @@ export async function DELETE(request: NextRequest, { params }: Ctx) {
   const { id } = await params;
   if (!validFileId(id)) return badRequest('Invalid file id');
   await VaultFile.deleteOne({ userId: who.uid, fileId: id });
+  void recordEvent(request, { type: 'file_deleted', uid: who.uid, details: { fileId: id.slice(0, 8) } });
   return NextResponse.json({ success: true });
 }

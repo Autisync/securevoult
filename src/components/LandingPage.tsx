@@ -550,7 +550,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid gap-10 md:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,1fr))]">
           <div>
             <Logo size="sm" />
-            <p className="mt-4 text-sm text-muted-foreground max-w-xs">The private password manager from Autisync, made in the UK.</p>
+            <p className="mt-4 text-sm text-muted-foreground max-w-xs">The private password manager from Autisync.</p>
           </div>
           <div>
             <p className="text-sm font-medium mb-3">Product</p>
@@ -573,7 +573,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
           </div>
         </div>
         <div className="border-t border-border/60">
-          <p className="max-w-6xl mx-auto px-4 sm:px-6 py-5 text-xs text-muted-foreground">© {new Date().getFullYear()} Autisync. SecureVoult is a product of Autisync.</p>
+          <p className="max-w-6xl mx-auto px-4 sm:px-6 py-5 text-xs text-muted-foreground">© {new Date().getFullYear()} MAHELDOM CONSULTING, LDA., trading as Autisync. SecureVoult is an Autisync product.</p>
         </div>
       </footer>
     </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { VaultFile } from '@/lib/models';
 import { resolveEntitlements } from '@/lib/entitlements';
 import { badRequest } from '@/lib/api-error';
+import { recordEvent } from '@/lib/security-events';
 import { fileRequestUser, validFileId, MAX_FILE_BYTES, FILE_OVERHEAD } from '@/lib/vault-files-server';
 
 export const runtime = 'nodejs';
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
   if (limits.fileStorageMB >= 0) {
     const allowed = limits.fileStorageMB * 1024 * 1024;
     if ((await usedBytes(who.uid)) + data.length > allowed) {
+      void recordEvent(request, { type: 'storage_full', uid: who.uid, details: { plan: effectivePlan, limitMB: limits.fileStorageMB } });
       return NextResponse.json({
         error: true, code: 'storage_full', currentPlan: effectivePlan,
         message: `Your ${effectivePlan} plan includes ${limits.fileStorageMB >= 1024 ? `${limits.fileStorageMB / 1024} GB` : `${limits.fileStorageMB} MB`} of file storage, and it's full.`,
@@ -53,5 +55,6 @@ export async function POST(request: NextRequest) {
     { $set: { size: data.length, data } },
     { upsert: true },
   );
+  void recordEvent(request, { type: 'file_uploaded', uid: who.uid, details: { fileId: id.slice(0, 8), bytes: data.length } });
   return NextResponse.json({ success: true, id, size: data.length });
 }

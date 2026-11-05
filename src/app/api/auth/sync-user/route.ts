@@ -6,6 +6,7 @@ import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { createOrUpdateSession, ClientType, canReuseSessionId } from '@/lib/session-service';
 import { tooManyRequests, serviceUnavailable } from '@/lib/api-error';
 import { randomUUID } from 'crypto';
+import { recordSignIn } from '@/lib/security-events';
 
 function retryAfterSeconds(resetAt: number): number {
   return Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
@@ -62,6 +63,8 @@ export async function POST(request: NextRequest) {
     ...(isAdminEmail ? { role: 'admin' } : {}),
   };
 
+  const isNewAccount = !(await User.exists({ firebaseUid: uid }));
+
   const user = await User.findOneAndUpdate(
     { firebaseUid: uid },
     {
@@ -93,6 +96,14 @@ export async function POST(request: NextRequest) {
       : (request.headers.get('user-agent') ?? '');
 
   // Best-effort — don't fail the sync if session creation fails
+  // A brand-new account becomes a contact and a deal in the Autisync CRM.
+  if (isNewAccount) {
+    void import('@/lib/crm').then(({ notifySignup }) => notifySignup({ email, name: name ?? body.displayName, provider: body.provider }));
+  }
+
+  // A new session is a sign-in: logged, and new devices are flagged and emailed.
+  if (sessionId !== requestedSessionId) await recordSignIn(request, { uid, email }, ua);
+
   try {
     await createOrUpdateSession(uid, sessionId, { clientType, userAgent: ua, ipAddress: ip });
   } catch {

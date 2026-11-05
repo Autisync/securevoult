@@ -56,6 +56,10 @@ export async function requireAuthenticatedUser(
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Token verification failed';
     console.error('[server-auth] Token verification failed:', message);
+    // Expired tokens are routine (the app refreshes them); anything else is worth a record.
+    if (!/expired/i.test(message)) {
+      void import('@/lib/security-events').then(({ recordEvent }) => recordEvent(request, { type: 'auth_failed', details: { reason: message.slice(0, 200) } }));
+    }
     return {
       error: NextResponse.json(
         { error: 'Invalid or expired authentication token' },
@@ -73,6 +77,7 @@ export async function requireAuthenticatedUser(
     try {
       const revoked = await isSessionRevoked(uid, sessionId);
       if (revoked) {
+        void import('@/lib/security-events').then(({ recordEvent }) => recordEvent(request, { type: 'revoked_session_used', uid, email: decoded.email }));
         return {
           error: NextResponse.json(
             { error: 'Session has been revoked. Please sign in again.' },

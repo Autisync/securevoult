@@ -14,7 +14,10 @@ export const validFileId = (id: string) => /^[A-Za-z0-9_-]{8,64}$/.test(id);
 /** Rate limit, sign-in, database and second step; returns the user id or an error response. */
 export async function fileRequestUser(request: NextRequest): Promise<{ uid: string } | { error: NextResponse }> {
   const rl = await checkRateLimit(getClientIp(request), RATE_LIMITS.vaultFiles);
-  if (!rl.allowed) return { error: tooManyRequests(Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000))) };
+  if (!rl.allowed) {
+    void import('@/lib/security-events').then(({ recordEvent }) => recordEvent(request, { type: 'rate_limited', summary: 'Too many file requests' }));
+    return { error: tooManyRequests(Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000))) };
+  }
   const auth = await requireAuthenticatedUser(request);
   if ('error' in auth) return { error: auth.error };
   try { await connectDB(); } catch { return { error: serviceUnavailable('Database unavailable.') }; }

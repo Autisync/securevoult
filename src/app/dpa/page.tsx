@@ -6,7 +6,7 @@ export const metadata = {
   description: 'How Autisync processes personal data for businesses on SecureVoult company plans (UK GDPR Article 28).',
 };
 
-const who = [LEGAL.company, LEGAL.companyNumber && `company number ${LEGAL.companyNumber}`, LEGAL.address].filter(Boolean).join(', ');
+const who = [LEGAL.company, LEGAL.companyNumber, LEGAL.address].filter(Boolean).join(', ');
 
 const sections = [
   {

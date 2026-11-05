@@ -15,7 +15,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import {
   X, Copy, Check, Eye, EyeOff, Edit, Trash2, ExternalLink, Star,
   Key, StickyNote, CreditCard, UserCircle, Wifi, Globe, Calendar,
-  RefreshCw, Tag, Shield, AlertTriangle, Landmark, Maximize2, Minimize2
+  RefreshCw, Tag, Shield, AlertTriangle, Landmark, Maximize2, Minimize2, Fingerprint
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -53,6 +53,7 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [faviconError, setFaviconError] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [removingPk, setRemovingPk] = useState<string | null>(null);
 
   // Esc shrinks the large view first, then closes.
   useEffect(() => {
@@ -238,6 +239,34 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
               <div className="bg-secondary/30 rounded-lg px-3 py-2">
                 <TotpCode secret={entry.totp} onCopy={(code) => copy(code, '2FA code')} />
               </div>
+            </div>
+          )}
+
+          {/* Passkeys saved by the extension */}
+          {!!entry.passkeys?.length && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">Passkey</p>
+              {entry.passkeys.map((pk) => (
+                <div key={pk.credentialId} className="flex items-center gap-2.5 bg-secondary/30 rounded-lg px-3 py-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-300 flex items-center justify-center flex-shrink-0"><Fingerprint className="w-4 h-4" /></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">{pk.userName || entry.username || 'Passkey'}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{pk.rpId} · saved {format(new Date(pk.createdAt), 'd MMM yyyy')}</p>
+                  </div>
+                  {removingPk === pk.credentialId ? (
+                    <button
+                      onClick={async () => {
+                        try { await updateEntry(entry.id, { passkeys: (entry.passkeys ?? []).filter((x) => x.credentialId !== pk.credentialId) }); toast({ title: 'Passkey removed', description: `Also remove it from your ${pk.rpId} account settings.` }); }
+                        catch { toast({ title: 'Remove failed', variant: 'destructive' }); }
+                        setRemovingPk(null);
+                      }}
+                      className="text-xs px-2 py-1 rounded-md bg-destructive/15 text-destructive hover:bg-destructive/25">Remove</button>
+                  ) : (
+                    <button onClick={() => setRemovingPk(pk.credentialId)} className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="Remove passkey"><Trash2 className="w-3.5 h-3.5" /></button>
+                  )}
+                </div>
+              ))}
+              <p className="text-[11px] text-muted-foreground/70">Used by the SecureVoult extension when {entry.passkeys[0].rpId} asks for a passkey.</p>
             </div>
           )}
 

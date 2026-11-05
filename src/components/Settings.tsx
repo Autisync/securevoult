@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { readRoute, writeRoute } from '@/lib/route';
 import { useDeviceSessions } from '@/hooks/useDeviceSessions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,7 @@ import { useVault } from '@/contexts/VaultContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useVaultPreferences } from '@/hooks/useVaultPreferences';
-import { TwoStepSettings, RecoveryKitSettings, DeviceUnlockSettings } from '@/components/AccountSecurity';
+import { TwoStepSettings, RecoveryKitSettings, DeviceUnlockSettings, SecurityActivity } from '@/components/AccountSecurity';
 import { forgetDevice, enableRememberIfChosen } from '@/lib/device-session';
 import { parseCsv, detectSource, type CsvSource } from '@/lib/importers';
 import { CryptoService } from '@/lib/crypto';
@@ -30,6 +31,7 @@ import { TrustSignals } from '@/components/TrustSignals';
 import { PlanBadge } from '@/components/PlanGate';
 import { canUsePasskeys } from '@/lib/feature-gates';
 import type { PlanId } from '@/lib/plans';
+import { LEGAL } from '@/lib/legal';
 
 interface SettingsProps {
   onClose?: () => void;
@@ -39,7 +41,12 @@ export function Settings({ onClose }: SettingsProps) {
   const { vault, exportVault, exportVaultCSV, importVault, importFromCSV, lockVault, updateEntry, changeMasterPassword } = useVault();
   const { user } = useAuth();
   const currentPlan: PlanId = (user?.plan ?? 'free') as PlanId;
-  const [tab, setTab] = useState('profile');
+  const SETTINGS_TABS = ['profile', 'security', 'passkeys', 'vault', 'appearance', 'importexport', 'extension', 'devices', 'billing', 'about'];
+  const [tab, setTab] = useState(() => {
+    const r = readRoute();
+    return r[0] === 'vault' && r[1] === 'settings' && SETTINGS_TABS.includes(r[2]) ? r[2] : 'profile';
+  });
+  useEffect(() => { writeRoute(['vault', 'settings', tab]); }, [tab]);
   const { toast } = useToast();
   const { prefs, setPref } = useVaultPreferences();
   const { sessions, loading: sessionsLoading, error: sessionsError, fetchSessions, revokeSession, revokeOtherSessions } = useDeviceSessions();
@@ -358,6 +365,9 @@ export function Settings({ onClose }: SettingsProps) {
           </Section>
           <Section title="Quick unlock">
             <DeviceUnlockSettings />
+          </Section>
+          <Section title="Recent activity">
+            <SecurityActivity />
           </Section>
           <Section title="This device">
             <Row label="Keep me unlocked on this device" hint={prefs.rememberDays > 0
@@ -1081,10 +1091,10 @@ export function Settings({ onClose }: SettingsProps) {
           <Section title="Legal & contact">
             <div className="bg-card border border-border rounded-xl divide-y divide-border/50">
               {[
-                { label: 'Privacy policy', value: 'securevoult.app/privacy' },
-                { label: 'Terms of service', value: 'securevoult.app/terms' },
-                { label: 'Security disclosure', value: 'security@securevoult.app' },
-                { label: 'Support', value: 'support@securevoult.app' },
+                { label: 'Privacy policy', value: `${LEGAL.site}/privacy` },
+                { label: 'Terms of service', value: `${LEGAL.site}/terms` },
+                { label: 'Security disclosure', value: `${LEGAL.site}/security` },
+                { label: 'Support', value: LEGAL.email },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between px-4 py-2.5">
                   <span className="text-sm text-muted-foreground">{label}</span>
