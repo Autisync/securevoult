@@ -61,7 +61,7 @@ const ACTION_COLORS: Record<string, string> = {
   update_role:     'bg-violet-500/15 text-violet-400',
   deactivate_user: 'bg-red-500/15 text-red-400',
   activate_user:   'bg-green-500/15 text-green-400',
-  vault_accessed:  'bg-blue-500/15 text-blue-400',
+  vault_accessed:  'bg-primary/15 text-primary',
 };
 
 // ── Props ──────────────────────────────────────────────────────────────────
@@ -507,7 +507,7 @@ export function AdminPanel({ onBackToVault, onViewPublicSite }: AdminPanelProps)
                       {u.photoURL ? (
                         <img src={u.photoURL} alt={u.displayName} className="w-9 h-9 rounded-full flex-shrink-0" />
                       ) : (
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/30 to-violet-500/30 flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/30 to-amber-600/30 flex items-center justify-center flex-shrink-0 text-sm font-bold">
                           {(u.displayName || u.email)[0].toUpperCase()}
                         </div>
                       )}

@@ -168,9 +168,9 @@ const FEATURES = [
     icon: Shield,
     title: 'Zero-knowledge encryption',
     description: 'Your master password never leaves your device. All encryption and decryption happens locally in your browser.',
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/10',
-    border: 'group-hover:border-blue-500/30',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
+    border: 'group-hover:border-primary/30',
   },
   {
     icon: Zap,
@@ -252,8 +252,8 @@ const CYBER_ESSENTIALS_CONTROLS = [
     icon: Wifi,
     title: 'Boundary firewalls & gateways',
     desc: 'All network traffic entering and leaving our infrastructure is filtered through managed firewalls. Internet-facing services are restricted to necessary ports and protocols only.',
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/10',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
   },
   {
     icon: Settings2,
@@ -384,8 +384,8 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
       <section className="relative pt-24 pb-20 px-6 text-center overflow-hidden">
         {/* Animated background orbs */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-primary/8 rounded-full blur-3xl pointer-events-none animate-float-slow" />
-        <div className="absolute top-20 left-1/4 w-[300px] h-[300px] bg-violet-500/6 rounded-full blur-3xl pointer-events-none animate-float" style={{ animationDelay: '-2s' }} />
-        <div className="absolute top-10 right-1/4 w-[250px] h-[250px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none animate-float" style={{ animationDelay: '-4s' }} />
+        <div className="absolute top-20 left-1/4 w-[300px] h-[300px] bg-amber-500/6 rounded-full blur-3xl pointer-events-none animate-float" style={{ animationDelay: '-2s' }} />
+        <div className="absolute top-10 right-1/4 w-[250px] h-[250px] bg-primary/5 rounded-full blur-3xl pointer-events-none animate-float" style={{ animationDelay: '-4s' }} />
 
         {/* Grid overlay */}
         <div
@@ -401,7 +401,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6 leading-tight">
             Passwords you can
             <span
-              className="bg-gradient-to-r from-blue-400 via-violet-400 to-blue-400 bg-clip-text text-transparent animate-gradient-shift"
+              className="bg-gradient-to-r from-primary via-amber-300 to-primary bg-clip-text text-transparent animate-gradient-shift"
               style={{ backgroundSize: '200% auto' }}
             > actually trust</span>
           </h1>
@@ -527,7 +527,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
       </section>
 
       {/* â”€â”€ Import / Export â”€â”€ */}
-      <section className="py-20 px-6 bg-[hsl(222_40%_7%)]">
+      <section className="py-20 px-6 bg-card">
         <div className="max-w-5xl mx-auto">
           <Reveal className="text-center mb-12">
             <div className="inline-flex items-center gap-2 text-xs text-teal-400 font-medium mb-4">
@@ -573,7 +573,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
       </section>
 
       {/* â”€â”€ Security model â”€â”€ */}
-      <section id="security" className="py-20 px-6 bg-[hsl(222_40%_7%)]">
+      <section id="security" className="py-20 px-6 bg-card">
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <Reveal direction="left">
             <div className="inline-flex items-center gap-2 text-xs text-primary font-medium mb-4">
@@ -685,10 +685,10 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
       </section>
 
       {/* â”€â”€ Cyber Essentials â”€â”€ */}
-      <section className="py-20 px-6 bg-[hsl(222_40%_7%)]">
+      <section className="py-20 px-6 bg-card">
         <div className="max-w-6xl mx-auto">
           <Reveal className="text-center mb-14">
-            <div className="inline-flex items-center gap-2 text-xs text-blue-400 font-medium mb-4">
+            <div className="inline-flex items-center gap-2 text-xs text-primary font-medium mb-4">
               <Award className="w-3.5 h-3.5" />Cyber Essentials
             </div>
             <h2 className="text-3xl font-bold mb-3">UK Government-backed cyber security certification</h2>
@@ -704,8 +704,8 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
                 level: 'Cyber Essentials',
                 tag: 'Foundation level',
                 desc: 'Self-assessed questionnaire verified by an accredited certification body. Confirms that the five key technical controls are in place to protect against the most common internet-based cyber threats.',
-                color: 'border-blue-500/40 bg-blue-500/5',
-                badge: 'bg-blue-500/15 text-blue-400',
+                color: 'border-primary/40 bg-primary/5',
+                badge: 'bg-primary/15 text-primary',
                 icon: Shield,
                 points: ['Self-assessed against IASME Consortium standard', 'Verified by NCSC-approved certification body', 'Renewed annually to reflect current configurations', 'Required for UK Government contracts handling sensitive data'],
               },
@@ -833,7 +833,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
                 badge: 'In development',
                 badgeColor: 'bg-yellow-500/15 text-yellow-400',
                 tech: 'Electron · NSIS installer · Portable .exe',
-                color: 'text-blue-400', bg: 'bg-blue-500/10', hover: 'hover:border-blue-500/25',
+                color: 'text-primary', bg: 'bg-primary/10', hover: 'hover:border-primary/25',
               },
               {
                 icon: Apple,
@@ -954,10 +954,10 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
           </Reveal>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             {[
-              { name: 'Chrome',  status: 'Beta',           color: 'bg-blue-500/15 text-blue-400',          note: 'MV3 — manual install' },
-              { name: 'Edge',    status: 'Beta',           color: 'bg-blue-500/15 text-blue-400',          note: 'MV3 — manual install' },
-              { name: 'Brave',   status: 'Beta',           color: 'bg-blue-500/15 text-blue-400',          note: 'MV3 — manual install' },
-              { name: 'Opera',   status: 'Beta',           color: 'bg-blue-500/15 text-blue-400',          note: 'MV3 — manual install' },
+              { name: 'Chrome',  status: 'Beta',           color: 'bg-primary/15 text-primary',          note: 'MV3 — manual install' },
+              { name: 'Edge',    status: 'Beta',           color: 'bg-primary/15 text-primary',          note: 'MV3 — manual install' },
+              { name: 'Brave',   status: 'Beta',           color: 'bg-primary/15 text-primary',          note: 'MV3 — manual install' },
+              { name: 'Opera',   status: 'Beta',           color: 'bg-primary/15 text-primary',          note: 'MV3 — manual install' },
               { name: 'Firefox', status: 'In development', color: 'bg-yellow-500/15 text-yellow-400',      note: 'MV2 — not yet submitted' },
               { name: 'Safari',  status: 'Planned',        color: 'bg-secondary/60 text-muted-foreground', note: 'Safari Web Extension' },
             ].map(({ name, status, color, note }, i) => (
@@ -1019,7 +1019,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
 
 
       {/* -- Roadmap -- */}
-      <section id="roadmap" className="py-16 px-6 bg-[hsl(222_40%_7%)]">
+      <section id="roadmap" className="py-16 px-6 bg-card">
         <div className="max-w-4xl mx-auto">
           <Reveal className="text-center mb-8">
             <div className="inline-flex items-center gap-2 text-xs text-primary/80 font-medium mb-4">
@@ -1031,7 +1031,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
           <div className="space-y-2">
             {[
               { label: 'Web application',          status: 'Live',           detail: 'Full vault, autofill, breach monitoring, import/export',          sc: 'bg-green-500/15 text-green-400',           dc: 'bg-green-400' },
-              { label: 'Browser extension (beta)', status: 'Beta',           detail: 'Chrome, Edge, Brave, Opera — manual install; store submission not yet started', sc: 'bg-blue-500/15 text-blue-400',   dc: 'bg-blue-400' },
+              { label: 'Browser extension (beta)', status: 'Beta',           detail: 'Chrome, Edge, Brave, Opera — manual install; store submission not yet started', sc: 'bg-primary/15 text-primary',   dc: 'bg-primary' },
               { label: 'iOS app',                  status: 'In development', detail: 'React Native + Expo — biometrics, autofill, offline vault',        sc: 'bg-yellow-500/15 text-yellow-400',          dc: 'bg-yellow-400' },
               { label: 'Android app',              status: 'In development', detail: 'React Native + Expo — fingerprint/face unlock, autofill service',  sc: 'bg-yellow-500/15 text-yellow-400',          dc: 'bg-yellow-400' },
               { label: 'Desktop (Win/Mac/Linux)',   status: 'In development', detail: 'Electron — NSIS, DMG, AppImage — system tray + biometric unlock',  sc: 'bg-yellow-500/15 text-yellow-400',          dc: 'bg-yellow-400' },
@@ -1055,7 +1055,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
       </section>
 
       {/* -- Pricing -- */}
-      <section id="pricing" className="py-20 px-6 bg-[hsl(222_40%_7%)]">
+      <section id="pricing" className="py-20 px-6 bg-card">
         <div className="max-w-4xl mx-auto text-center">
           <Reveal>
             <h2 className="text-3xl font-bold mb-3">Simple, honest pricing</h2>
@@ -1188,9 +1188,9 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
       </section>
 
       {/* -- CTA -- */}
-      <section className="py-20 px-6 bg-gradient-to-b from-[hsl(222_40%_7%)] to-background">
+      <section className="py-20 px-6 bg-gradient-to-b from-[hsl(var(--card))] to-background">
         <Reveal className="max-w-2xl mx-auto text-center">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center mx-auto mb-6 animate-pulse-glow-violet">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-amber-600 flex items-center justify-center mx-auto mb-6 animate-pulse-glow-violet">
             <Lock className="w-7 h-7 text-white" />
           </div>
           <h2 className="text-3xl font-bold mb-3">Start protecting your passwords today</h2>
@@ -1238,7 +1238,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
               <div className="flex flex-wrap gap-2 mt-4">
                 {[
                   { label: 'GDPR Compliant',    color: 'bg-green-500/10 text-green-400 border border-green-500/20' },
-                  { label: 'Cyber Essentials',  color: 'bg-blue-500/10 text-blue-400 border border-blue-500/20' },
+                  { label: 'Cyber Essentials',  color: 'bg-primary/10 text-primary border border-primary/20' },
                   { label: 'AES-256 Encrypted', color: 'bg-primary/10 text-primary border border-primary/20' },
                 ].map(({ label, color }) => (
                   <span key={label} className={`text-xs px-2.5 py-1 rounded-full font-medium ${color}`}>{label}</span>

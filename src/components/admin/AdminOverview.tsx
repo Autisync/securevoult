@@ -44,7 +44,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   critical: 'bg-red-500/15 text-red-400 border-red-500/25',
   high:     'bg-orange-500/15 text-orange-400 border-orange-500/25',
   medium:   'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
-  low:      'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  low:      'bg-primary/15 text-primary border-primary/25',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -96,7 +96,7 @@ export function AdminOverview({ onNavigate }: Props) {
   if (!metrics) return null;
 
   const statCards = [
-    { label: 'Total users',          value: metrics.totalUsers,          sub: `${metrics.newUsersToday} today`,                                      icon: Users,       color: 'text-blue-400',   bg: 'bg-blue-500/10' },
+    { label: 'Total users',          value: metrics.totalUsers,          sub: `${metrics.newUsersToday} today`,                                      icon: Users,       color: 'text-primary',   bg: 'bg-primary/10' },
     { label: 'Active users',         value: metrics.activeUsers,         sub: `${metrics.adminCount} admins`,                                        icon: Shield,      color: 'text-violet-400', bg: 'bg-violet-500/10' },
     { label: 'Active sessions',      value: metrics.activeSessions,      sub: 'last 24 hours',                                                       icon: Activity,    color: 'text-green-400',  bg: 'bg-green-500/10' },
     { label: 'Open incidents',       value: metrics.openIncidents,       sub: `${metrics.criticalIncidents} critical`,                               icon: AlertTriangle, color: metrics.criticalIncidents > 0 ? 'text-red-400' : 'text-orange-400', bg: metrics.criticalIncidents > 0 ? 'bg-red-500/10' : 'bg-orange-500/10' },
@@ -138,7 +138,7 @@ export function AdminOverview({ onNavigate }: Props) {
         {[
           { label: 'View incidents',     section: 'resolution', color: 'text-orange-400' },
           { label: 'Exposure center',    section: 'breach',     color: 'text-red-400' },
-          { label: 'Manage users',       section: 'users',      color: 'text-blue-400' },
+          { label: 'Manage users',       section: 'users',      color: 'text-primary' },
           { label: 'System health',      section: 'health',     color: 'text-green-400' },
         ].map(({ label, section, color }) => (
           <button

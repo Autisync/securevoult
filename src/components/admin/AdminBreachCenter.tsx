@@ -55,7 +55,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   critical: 'bg-red-500/15 text-red-400 border-red-500/25',
   high:     'bg-orange-500/15 text-orange-400 border-orange-500/25',
   medium:   'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
-  low:      'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  low:      'bg-primary/15 text-primary border-primary/25',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -308,10 +308,10 @@ export function AdminBreachCenter() {
       </div>
 
       {/* Privacy notice */}
-      <div className="flex items-start gap-2.5 p-3 bg-blue-500/8 border border-blue-500/20 rounded-lg">
-        <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-        <p className="text-xs text-blue-300/90">
-          Password exposure checks use k-anonymity — only a 5-char SHA-1 prefix is transmitted. Plaintext passwords never leave your device. Email and paste exposure checks use the HIBP API (configure <code className="bg-blue-500/15 px-0.5 rounded">HIBP_API_KEY</code>).
+      <div className="flex items-start gap-2.5 p-3 bg-primary/8 border border-primary/20 rounded-lg">
+        <Info className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+        <p className="text-xs text-primary/90">
+          Password exposure checks use k-anonymity — only a 5-char SHA-1 prefix is transmitted. Plaintext passwords never leave your device. Email and paste exposure checks use the HIBP API (configure <code className="bg-primary/15 px-0.5 rounded">HIBP_API_KEY</code>).
         </p>
       </div>
 
@@ -476,7 +476,7 @@ export function AdminBreachCenter() {
             { label: 'Critical', count: summary.critical, cls: 'text-red-400 bg-red-500/10 border-red-500/20' },
             { label: 'High',     count: summary.high,     cls: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
             { label: 'Medium',   count: summary.medium,   cls: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
-            { label: 'Low',      count: summary.low,      cls: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+            { label: 'Low',      count: summary.low,      cls: 'text-primary bg-primary/10 border-primary/20' },
             { label: 'Resolved', count: summary.resolved, cls: 'text-green-400 bg-green-500/10 border-green-500/20' },
           ].map(({ label, count, cls }) => (
             <div key={label} className={`border rounded-xl p-3 text-center ${cls}`}>

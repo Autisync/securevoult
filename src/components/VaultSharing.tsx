@@ -49,7 +49,7 @@ function ShareVaultDialog({ onShare, isLoading }: { onShare: (name: string, desc
           <Plus className="w-4 h-4 mr-1.5" />Share vault
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md border-border bg-[hsl(222_40%_8%)] p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-md border-border bg-card p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <DialogTitle>Share your vault</DialogTitle>
         </DialogHeader>

@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const TYPE_META: Record<VaultItemType, { icon: React.ElementType; label: string; color: string; bg: string }> = {
-  login:    { icon: Key,        label: 'Login',        color: 'text-blue-400',   bg: 'bg-blue-500/10' },
+  login:    { icon: Key,        label: 'Login',        color: 'text-primary',   bg: 'bg-primary/10' },
   note:     { icon: StickyNote, label: 'Secure note',  color: 'text-violet-400', bg: 'bg-violet-500/10' },
   card:     { icon: CreditCard, label: 'Payment card', color: 'text-green-400',  bg: 'bg-green-500/10' },
   identity: { icon: UserCircle, label: 'Identity',     color: 'text-orange-400', bg: 'bg-orange-500/10' },
@@ -32,11 +32,11 @@ const TYPE_META: Record<VaultItemType, { icon: React.ElementType; label: string;
 };
 
 const GRADIENTS = [
-  'from-blue-500 to-violet-600',
-  'from-violet-500 to-pink-600',
+  'from-primary to-amber-700',
+  'from-stone-500 to-stone-700',
   'from-emerald-500 to-teal-600',
   'from-orange-500 to-red-600',
-  'from-cyan-500 to-blue-600',
+  'from-sky-600 to-cyan-800',
 ];
 
 interface EntryDetailPanelProps {
@@ -146,7 +146,7 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
 
   return (
     <>
-      <div className="w-80 flex-shrink-0 border-l border-border flex flex-col bg-[hsl(222_40%_6%)] overflow-hidden animate-in slide-in-from-right-5 duration-200">
+      <div className="fixed inset-0 z-40 md:static md:inset-auto md:z-auto w-full md:w-96 flex-shrink-0 md:border-l border-border flex flex-col bg-card overflow-hidden animate-in slide-in-from-right-8 fade-in duration-200">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border/50">
           <div className="flex items-center gap-2.5 min-w-0">

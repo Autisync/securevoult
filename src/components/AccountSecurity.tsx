@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { useVault } from '@/contexts/VaultContext';
 import { mfaApi } from '@/lib/mfa-client';
-import { Check, Copy, Download, KeyRound, Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { deviceUnlockInfo, deviceUnlockSupported, removeDeviceUnlock, setUpDeviceUnlock } from '@/lib/biometric';
+import { Check, Copy, Download, Fingerprint, KeyRound, Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
 
 const card = 'bg-card border border-border rounded-xl p-4 space-y-3';
 
@@ -204,6 +206,71 @@ export function RecoveryKitSettings() {
           {hasRecoveryKit ? 'Replace Recovery Kit' : 'Make my Recovery Kit'}
         </Button>
       )}
+    </div>
+  );
+}
+
+/** Settings → Security: Windows Hello / Touch ID / fingerprint on this device. */
+export function DeviceUnlockSettings() {
+  const { getKeyHeader } = useVault();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [info, setInfo] = useState(() => (typeof window !== 'undefined' ? deviceUnlockInfo(user?.id ?? null) : null));
+  const [open, setOpen] = useState(false);
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { void deviceUnlockSupported().then(setSupported); }, []);
+
+  const enable = async () => {
+    const header = getKeyHeader();
+    if (!header || !user) return;
+    setBusy(true);
+    try {
+      const label = await setUpDeviceUnlock({ uid: user.id, email: user.email, password: pw, header });
+      setInfo(deviceUnlockInfo(user.id));
+      setOpen(false); setPw('');
+      toast({ title: `${label} is set up`, description: 'Next time, unlock with one touch instead of typing.' });
+    } catch (e) {
+      const name = e instanceof Error ? e.name : '';
+      toast({
+        title: name === 'WrongPasswordError' ? 'That master password is not right' : name === 'NotAllowedError' ? 'Cancelled' : 'Could not set it up',
+        description: name === 'WrongPasswordError' || name === 'NotAllowedError' ? undefined : e instanceof Error ? e.message : undefined,
+        variant: 'destructive',
+      });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className={card}>
+      <div className="flex items-start gap-3">
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${info ? 'bg-green-500/15 text-green-400' : 'bg-primary/15 text-primary'}`}>
+          <Fingerprint className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">{info ? `Unlock with ${info.label} is on` : 'Unlock with Windows Hello or fingerprint'}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {info
+              ? 'On this device you can unlock with your PIN, fingerprint or face instead of the master password.'
+              : supported === false
+                ? 'This browser or device has no Windows Hello, Touch ID or fingerprint available.'
+                : 'Use your Windows PIN, fingerprint or face to unlock on this device. Your master password still works everywhere.'}
+          </p>
+        </div>
+      </div>
+      {info ? (
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { removeDeviceUnlock(); setInfo(null); toast({ title: 'Removed from this device' }); }}>Remove from this device</Button>
+      ) : supported !== false && (open ? (
+        <div className="flex gap-2 items-center animate-in fade-in duration-200">
+          <Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Master password" aria-label="Master password"
+            autoComplete="current-password" className="h-9 flex-1 bg-secondary/50" autoFocus onKeyDown={(e) => { if (e.key === 'Enter' && pw) void enable(); }} />
+          <Button size="sm" className="h-9 text-xs" onClick={enable} disabled={!pw || busy}>{busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Set up'}</Button>
+          <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={() => { setOpen(false); setPw(''); }}>Cancel</Button>
+        </div>
+      ) : (
+        <Button size="sm" className="h-8 text-xs" onClick={() => setOpen(true)} disabled={supported === null}>Set up</Button>
+      ))}
     </div>
   );
 }

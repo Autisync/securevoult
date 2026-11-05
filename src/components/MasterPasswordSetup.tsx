@@ -75,7 +75,7 @@ export function MasterPasswordSetup({ onComplete }: MasterPasswordSetupProps) {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-violet-600/8 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-amber-700/8 rounded-full blur-3xl" />
       </div>
       <div className="relative w-full max-w-md space-y-8 animate-fade-up">
         <div className="flex justify-center">

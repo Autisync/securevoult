@@ -29,7 +29,7 @@ export function generateRecoveryKit({ email, displayName, recoveryKey, appUrl }:
   * { box-sizing: border-box; }
   body { font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; max-width: 720px; margin: 0 auto; padding: 40px 28px; background: #fff; }
   .brand { font-weight: 800; letter-spacing: -.3px; font-size: 18px; }
-  .brand span { color: #2563eb; }
+  .brand span { color: #B28228; }
   h1 { font-size: 28px; margin: 18px 0 4px; letter-spacing: -.5px; }
   .sub { color: #475569; margin: 0 0 24px; }
   .who { display: grid; grid-template-columns: 160px 1fr; gap: 6px 16px; font-size: 14px; margin-bottom: 26px; }

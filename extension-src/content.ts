@@ -103,32 +103,32 @@ import { baseDomain } from '@/lib/domain';
   root.innerHTML = `<style>
     :host { all: initial; }
     * { box-sizing: border-box; font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    .menu { position: absolute; min-width: 240px; max-width: 340px; background: #0b1222; color: #eef2ff; border: 1px solid #22314f;
+    .menu { position: absolute; min-width: 240px; max-width: 340px; background: #1A1B1B; color: #F4F1EA; border: 1px solid #333434;
       border-radius: 12px; box-shadow: 0 14px 34px rgba(0,0,0,.45); padding: 6px; }
-    .head { display: flex; align-items: center; gap: 6px; padding: 4px 8px 6px; color: #8ea0c0; font-size: 11px; }
-    .head b { color: #eef2ff; font-weight: 600; font-size: 11px; }
+    .head { display: flex; align-items: center; gap: 6px; padding: 4px 8px 6px; color: #A8A196; font-size: 11px; }
+    .head b { color: #F4F1EA; font-weight: 600; font-size: 11px; }
     button.item { all: unset; display: flex; flex-direction: column; gap: 1px; width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
-    button.item:hover, button.item:focus-visible { background: #17233d; outline: none; }
+    button.item:hover, button.item:focus-visible { background: #2A2B2B; outline: none; }
     .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .u { color: #8ea0c0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .card { position: fixed; right: 18px; top: 18px; width: 320px; background: #0b1222; color: #eef2ff; border: 1px solid #22314f;
+    .u { color: #A8A196; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card { position: fixed; right: 18px; top: 18px; width: 320px; background: #1A1B1B; color: #F4F1EA; border: 1px solid #333434;
       border-radius: 14px; box-shadow: 0 14px 34px rgba(0,0,0,.5); padding: 14px; }
-    .card p { margin: 0 0 10px; color: #b8c4dc; overflow-wrap: anywhere; }
-    .card h2 { margin: 0 0 6px; font-weight: 600; font-size: 14px; color: #eef2ff; }
+    .card p { margin: 0 0 10px; color: #CFC8BA; overflow-wrap: anywhere; }
+    .card h2 { margin: 0 0 6px; font-weight: 600; font-size: 14px; color: #F4F1EA; }
     .row { display: flex; gap: 8px; }
     .row button { all: unset; flex: 1; text-align: center; padding: 8px; border-radius: 9px; cursor: pointer; font-weight: 600; }
-    .row button.primary { background: #3b82f6; color: #fff; }
-    .row button.primary:hover { background: #2563eb; }
-    .row button.ghost { border: 1px solid #22314f; color: #b8c4dc; }
-    .row button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
-    .toast { position: fixed; right: 18px; bottom: 18px; background: #0b1222; color: #eef2ff; border: 1px solid #22314f;
+    .row button.primary { background: #C9A04A; color: #1A1B1B; }
+    .row button.primary:hover { background: #B28228; }
+    .row button.ghost { border: 1px solid #333434; color: #CFC8BA; }
+    .row button:focus-visible { outline: 2px solid #E3C27A; outline-offset: 2px; }
+    .toast { position: fixed; right: 18px; bottom: 18px; background: #1A1B1B; color: #F4F1EA; border: 1px solid #333434;
       border-radius: 12px; padding: 10px 14px; box-shadow: 0 10px 26px rgba(0,0,0,.45); }
     svg { flex-shrink: 0; }
   </style>`;
   let attached = false;
   const attach = () => { if (!attached && document.documentElement) { document.documentElement.appendChild(host); attached = true; } };
 
-  const lockIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+  const lockIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D1A94C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
   const el = (tag: string, cls?: string, text?: string) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
   let menu: HTMLElement | null = null;

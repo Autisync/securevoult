@@ -31,7 +31,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   critical: 'bg-red-500/15 text-red-400 border-red-500/25',
   high:     'bg-orange-500/15 text-orange-400 border-orange-500/25',
   medium:   'bg-yellow-500/15 text-yellow-400 border-yellow-500/25',
-  low:      'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  low:      'bg-primary/15 text-primary border-primary/25',
 };
 
 const STATUS_COLORS: Record<string, string> = {

@@ -12,6 +12,9 @@ import { normaliseRecoveryKey } from '@/lib/vault-crypto';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useVaultPreferences } from '@/hooks/useVaultPreferences';
 import { enableRememberIfChosen, forgetDevice } from '@/lib/device-session';
+import { deviceUnlockInfo } from '@/lib/biometric';
+import { AuthService } from '@/lib/auth';
+import { Fingerprint } from 'lucide-react';
 
 interface UnlockVaultProps {
   onUnlock: () => void;
@@ -23,7 +26,8 @@ export function UnlockVault({ onUnlock, isAdmin, onAdminPanel }: UnlockVaultProp
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<'unlock' | 'recover'>('unlock');
-  const { unlockVault, isLoading, error, secondFactor } = useVault();
+  const { unlockVault, unlockWithDevice, isLoading, error, secondFactor } = useVault();
+  const device = typeof window !== 'undefined' ? deviceUnlockInfo(AuthService.currentUid()) : null;
   const { prefs, setPref } = useVaultPreferences();
   const [keepUnlocked, setKeepUnlocked] = useState(prefs.rememberDays > 0);
 
@@ -53,7 +57,7 @@ export function UnlockVault({ onUnlock, isAdmin, onAdminPanel }: UnlockVaultProp
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/8 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/8 rounded-full blur-3xl" />
       </div>
       <div className="relative w-full max-w-sm space-y-8 animate-fade-up">
         <div className="flex justify-center"><Logo size="lg" /></div>
@@ -68,6 +72,15 @@ export function UnlockVault({ onUnlock, isAdmin, onAdminPanel }: UnlockVaultProp
             <RecoverForm onBack={() => setMode('unlock')} onDone={onUnlock} />
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {device && (
+                <>
+                  <Button type="button" variant="outline" className="w-full h-12 gap-2 font-semibold border-primary/40 hover:bg-primary/10"
+                    onClick={async () => { await unlockWithDevice(); onUnlock(); }} disabled={isLoading}>
+                    <Fingerprint className="w-5 h-5 text-primary" />Unlock with {device.label}
+                  </Button>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" /></div>
+                </>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="master-password" className="text-sm font-medium">Master password</Label>
                 <div className="relative">
@@ -79,7 +92,7 @@ export function UnlockVault({ onUnlock, isAdmin, onAdminPanel }: UnlockVaultProp
                     placeholder="Enter master password"
                     className="h-11 pr-10 bg-secondary/50 border-border/60 focus:border-primary"
                     autoComplete="current-password"
-                    autoFocus
+                    autoFocus={!device}
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"

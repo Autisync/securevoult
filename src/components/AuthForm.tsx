@@ -97,15 +97,15 @@ export function AuthForm() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left panel - branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12 bg-gradient-to-br from-[hsl(222_47%_6%)] to-[hsl(222_40%_9%)]">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-12 bg-gradient-to-br from-[hsl(var(--card))] to-[hsl(var(--card))]">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-amber-700/10 rounded-full blur-3xl pointer-events-none" />
         <Logo size="lg" />
         <div className="relative space-y-8">
           <div>
             <h1 className="text-4xl font-bold leading-tight mb-4">
               Your passwords,{' '}
-              <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary to-amber-500 bg-clip-text text-transparent">
                 encrypted
               </span>
               <br />end-to-end.
@@ -121,8 +121,8 @@ export function AuthForm() {
               { icon: Zap,         text: 'Instant autofill across browser and mobile' },
             ].map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-start gap-3">
-                <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/15 flex items-center justify-center">
-                  <Icon className="w-3 h-3 text-blue-400" />
+                <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center">
+                  <Icon className="w-3 h-3 text-primary" />
                 </div>
                 <span className="text-sm text-muted-foreground leading-relaxed">{text}</span>
               </div>

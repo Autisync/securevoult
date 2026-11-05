@@ -37,7 +37,7 @@ const CLIENT_ICONS: Record<string, React.ElementType> = {
 };
 
 const CLIENT_COLORS: Record<string, string> = {
-  web:       'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  web:       'bg-primary/15 text-primary border-primary/25',
   extension: 'bg-violet-500/15 text-violet-400 border-violet-500/25',
   mobile:    'bg-green-500/15 text-green-400 border-green-500/25',
 };

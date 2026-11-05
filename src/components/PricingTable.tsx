@@ -92,7 +92,7 @@ export function PricingTable({ currentPlan = 'free', onUpgrade, compact = false 
             <div
               key={planId}
               className={`relative flex flex-col rounded-2xl border p-5 space-y-4
-                ${meta.badge ? 'border-blue-500/40 bg-blue-500/5' : 'border-border bg-card'}
+                ${meta.badge ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'}
                 ${isCurrent ? 'ring-2 ring-primary/40' : ''}
               `}
             >

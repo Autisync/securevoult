@@ -1,14 +1,21 @@
 import { TempoInit } from "@/components/tempo-init";
 import { ThemeProvider, themeScript } from "@/components/ThemeProvider";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+// Geist, self-hosted (SIL Open Font License), same as autisync.com. No Google
+// Fonts request at build or at runtime.
+const inter = localFont({
+  src: "./fonts/Geist-Variable.woff2",
+  weight: "100 900",
+  display: "swap",
+  variable: "--font-geist-sans",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
-  title: "SecureVoult — Encrypted Password Manager",
+  title: "SecureVoult by Autisync — Encrypted Password Manager",
   description: "Zero-knowledge, end-to-end encrypted password manager. Your data stays yours.",
   icons: {
     icon: [
@@ -21,7 +28,7 @@ export const metadata: Metadata = {
     shortcut: "/favicon-32x32.png",
   },
   openGraph: {
-    title: "SecureVoult — Encrypted Password Manager",
+    title: "SecureVoult by Autisync — Encrypted Password Manager",
     description: "Zero-knowledge, AES-256 encrypted password manager with autofill and breach monitoring.",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
     type: "website",

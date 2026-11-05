@@ -141,6 +141,36 @@ export async function createVaultKey(password: string, kdf?: KdfParams): Promise
   } finally { raw.fill(0); }
 }
 
+/**
+ * The vault key's bytes, opened with the master password, for wrapping it a
+ * third way (Windows Hello / fingerprint). The caller must zero them after use.
+ */
+export async function vaultKeyBytes(password: string, header: KeyHeader): Promise<Uint8Array> {
+  const kek = await deriveKek(password, header.kdf);
+  try { return await open(kek, header.wk, AAD_KEY); } catch { throw new WrongPasswordError(); }
+}
+
+/** Wraps/unwraps the vault key bytes with a key derived from an authenticator's PRF output. */
+export async function sealWithSecret(secret: Uint8Array, raw: Uint8Array, info: string): Promise<Sealed> {
+  const k = await secretKey(secret, info);
+  return seal(k, raw, AAD_KEY);
+}
+
+export async function vaultKeyFromSecret(secret: Uint8Array, sealed: Sealed, info: string, header: KeyHeader): Promise<VaultKey> {
+  const k = await secretKey(secret, info);
+  let raw: Uint8Array;
+  try { raw = await open(k, sealed, AAD_KEY); } catch { throw new Error('This device unlock no longer matches the vault. Set it up again.'); }
+  try { return { key: await importVaultKey(raw), header }; } finally { raw.fill(0); }
+}
+
+async function secretKey(secret: Uint8Array, info: string): Promise<CryptoKey> {
+  const base = await crypto.subtle.importKey('raw', secret, 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: new TextEncoder().encode('securevoult:prf'), info: new TextEncoder().encode(info) },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'],
+  );
+}
+
 /** A new vault key with its Recovery Kit key made at the same time. */
 export async function createVaultKeyWithRecovery(password: string, kdf?: KdfParams): Promise<{ vk: VaultKey; recoveryKey: string }> {
   const raw = random(32);

@@ -13,7 +13,7 @@ import { useVault } from '@/contexts/VaultContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useVaultPreferences } from '@/hooks/useVaultPreferences';
-import { TwoStepSettings, RecoveryKitSettings } from '@/components/AccountSecurity';
+import { TwoStepSettings, RecoveryKitSettings, DeviceUnlockSettings } from '@/components/AccountSecurity';
 import { forgetDevice, enableRememberIfChosen } from '@/lib/device-session';
 import { parseCsv, detectSource, type CsvSource } from '@/lib/importers';
 import { CryptoService } from '@/lib/crypto';
@@ -267,7 +267,7 @@ export function Settings({ onClose }: SettingsProps) {
           <Section title="Account">
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="flex items-center gap-3 px-4 py-4">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary to-amber-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                   {user?.displayName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -356,6 +356,9 @@ export function Settings({ onClose }: SettingsProps) {
           <Section title="Recovery Kit">
             <RecoveryKitSettings />
           </Section>
+          <Section title="Quick unlock">
+            <DeviceUnlockSettings />
+          </Section>
           <Section title="This device">
             <Row label="Keep me unlocked on this device" hint={prefs.rememberDays > 0
               ? `Reloading or reopening SecureVoult here won't ask for the master password for ${prefs.rememberDays} day${prefs.rememberDays === 1 ? '' : 's'}. Lock now or sign out to end it. Use only on your own computer.`
@@ -422,8 +425,8 @@ export function Settings({ onClose }: SettingsProps) {
             </Row>
           </Section>
           <Section title="Two-factor awareness">
-            <div className="bg-blue-500/8 border border-blue-500/20 rounded-xl p-4 space-y-2">
-              <p className="text-sm font-medium text-blue-400 flex items-center gap-1.5">
+            <div className="bg-primary/8 border border-primary/20 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-medium text-primary flex items-center gap-1.5">
                 <Shield className="w-4 h-4 flex-shrink-0" />Use a 2FA tag to track accounts
               </p>
               <p className="text-xs text-muted-foreground leading-relaxed">
@@ -669,8 +672,8 @@ export function Settings({ onClose }: SettingsProps) {
 
               <div className="bg-card border border-border rounded-xl p-4 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-blue-500/15 flex items-center justify-center flex-shrink-0">
-                    <FileUp className="w-4 h-4 text-blue-400" />
+                  <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
+                    <FileUp className="w-4 h-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">Import from another password manager</p>
@@ -839,7 +842,7 @@ export function Settings({ onClose }: SettingsProps) {
           <Section title="Browser extension">
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="flex items-start gap-3 p-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-amber-700 flex items-center justify-center flex-shrink-0">
                   <Puzzle className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -1013,7 +1016,7 @@ export function Settings({ onClose }: SettingsProps) {
           <Section title="SecureVoult">
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="flex items-center gap-3 px-4 py-4 border-b border-border/50">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-amber-700 flex items-center justify-center flex-shrink-0">
                   <Shield className="w-5 h-5 text-white" />
                 </div>
                 <div>

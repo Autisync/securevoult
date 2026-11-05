@@ -91,11 +91,11 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
   const hasUsername = !!entry.username && entryType !== 'note' && entryType !== 'wifi' && entryType !== 'card' && entryType !== 'bank';
 
   const gradients = [
-    'from-blue-500 to-violet-600',
-    'from-violet-500 to-pink-600',
+    'from-primary to-amber-700',
+    'from-stone-500 to-stone-700',
     'from-emerald-500 to-teal-600',
     'from-orange-500 to-red-600',
-    'from-cyan-500 to-blue-600',
+    'from-sky-600 to-cyan-800',
   ];
   const gradient = gradients[letter.charCodeAt(0) % gradients.length];
 

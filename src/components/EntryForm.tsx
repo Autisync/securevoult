@@ -328,7 +328,7 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden border-border bg-[hsl(222_40%_8%)] max-h-[92vh] flex flex-col">
+      <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden border-border bg-card max-h-[92vh] flex flex-col">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <DialogTitle className="text-lg font-semibold">
             {isEditing ? 'Edit entry' : 'Add new entry'}

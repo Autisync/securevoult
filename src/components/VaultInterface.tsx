@@ -31,8 +31,9 @@ import {
   ChevronRight, Settings2, Shield, Key, StickyNote, CreditCard, Wifi,
   ArrowUpDown, Tag, UserCircle, CheckSquare, Square, Trash2, Heart,
   FolderOpen, WifiOff, RefreshCw, CloudOff, CheckCircle2, History,
-  Globe, LayoutDashboard, Landmark,
+  Globe, LayoutDashboard, Landmark, Menu,
 } from 'lucide-react';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
 type SidebarView = 'all' | 'favorites' | 'category' | 'recent' | 'used' | 'generator' | 'security' | 'settings';
 
@@ -65,6 +66,7 @@ interface VaultInterfaceProps {
 export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterfaceProps = {}) {
   const [sidebarView, setSidebarView] = useState<SidebarView>('all');
   const [activeCategory, setActiveCategory] = useState<string>('');
+  const [navOpen, setNavOpen] = useState(false);
   const [entryFormOpen, setEntryFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<PasswordEntry | undefined>();
   const [detailEntry, setDetailEntry] = useState<PasswordEntry | null>(null);
@@ -205,6 +207,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
   };
 
   const handleSidebarNav = (view: SidebarView, category?: string) => {
+    setNavOpen(false);
     setSidebarView(view);
     setBulkMode(false);
     setSelectedIds(new Set());
@@ -318,7 +321,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
   const SyncBadge = () => {
     const map = {
       synced:  { icon: CheckCircle2, label: 'Synced',       cls: 'text-green-400' },
-      syncing: { icon: RefreshCw,    label: 'Syncing…',      cls: 'text-blue-400 animate-spin' },
+      syncing: { icon: RefreshCw,    label: 'Syncing…',      cls: 'text-primary animate-spin' },
       failed:  { icon: CloudOff,     label: 'Sync failed',   cls: 'text-red-400' },
       offline: { icon: WifiOff,      label: 'Offline',       cls: 'text-yellow-400' },
     };
@@ -360,10 +363,8 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
 
   const showEntryList = ['all', 'favorites', 'recent', 'used', 'category'].includes(sidebarView);
 
-  return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-60 flex-shrink-0 border-r border-border flex flex-col bg-[hsl(222_40%_7%)]">
+  const sidebarBody = (
+    <>
         <div className="px-4 py-5 border-b border-border/50">
           <Logo size="sm" />
         </div>
@@ -420,14 +421,31 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen bg-background overflow-hidden">
+      {/* Sidebar: fixed on tablets and up, a slide-in drawer on phones */}
+      <aside className="hidden md:flex w-60 flex-shrink-0 border-r border-border flex-col bg-card">
+        {sidebarBody}
       </aside>
+      <Sheet open={navOpen} onOpenChange={setNavOpen}>
+        <SheetContent side="left" className="p-0 w-[82vw] max-w-72 flex flex-col bg-card">
+          <SheetTitle className="sr-only">Menu</SheetTitle>
+          {sidebarBody}
+        </SheetContent>
+      </Sheet>
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="flex-shrink-0 border-b border-border bg-background">
           {/* Top bar */}
-          <div className="h-14 flex items-center gap-3 px-5">
+          <div className="h-14 flex items-center gap-2 sm:gap-3 px-3 sm:px-5">
+            <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 flex-shrink-0" onClick={() => setNavOpen(true)} aria-label="Open menu">
+              <Menu className="w-5 h-5" />
+            </Button>
             {showEntryList ? (
               <>
                 <div className="relative flex-1 max-w-lg">
@@ -441,7 +459,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
                   />
                 </div>
                 <Select value={sortBy} onValueChange={v => setSortBy(v as SortBy)}>
-                  <SelectTrigger className="w-44 h-9 bg-secondary/50 border-border/60 text-sm flex-shrink-0">
+                  <SelectTrigger className="hidden lg:flex w-48 h-9 whitespace-nowrap bg-secondary/50 border-border/60 text-sm flex-shrink-0">
                     <ArrowUpDown className="w-3.5 h-3.5 mr-2 text-muted-foreground/60" />
                     <SelectValue />
                   </SelectTrigger>
@@ -449,12 +467,12 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
                     {SORT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" className={`h-9 flex-shrink-0 border-border/60 ${bulkMode ? 'bg-primary/10 text-primary border-primary/30' : 'text-muted-foreground'}`}
+                <Button variant="outline" size="sm" className={`hidden sm:inline-flex h-9 flex-shrink-0 border-border/60 ${bulkMode ? 'bg-primary/10 text-primary border-primary/30' : 'text-muted-foreground'}`}
                   onClick={() => { setBulkMode(!bulkMode); clearSelection(); }} title="Multi-select">
                   <CheckSquare className="w-4 h-4" />
                 </Button>
                 <Button size="sm" className="h-9 bg-primary hover:bg-primary/90 flex-shrink-0" onClick={() => { setEditingEntry(undefined); setEntryFormOpen(true); }}>
-                  <Plus className="w-4 h-4 mr-1.5" />Add entry
+                  <Plus className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">Add entry</span>
                 </Button>
               </>
             ) : (
@@ -466,7 +484,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
           </div>
           {/* Type filter chips — shown when browsing entries */}
           {showEntryList && sidebarView !== 'used' && (
-            <div className="flex items-center gap-1.5 px-5 pb-2.5 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1.5 px-3 sm:px-5 pb-2.5 overflow-x-auto no-scrollbar">
               {TYPE_FILTERS.map(({ value, label, icon: Icon }) => (
                 <button
                   key={value}
@@ -499,16 +517,16 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
 
         {/* Content + detail panel */}
         <div className="flex-1 flex min-h-0">
-          <main className="flex-1 overflow-y-auto p-5">
+          <main className="flex-1 overflow-y-auto p-3 sm:p-5">
 
             {/* Dashboard overview */}
             {sidebarView === 'all' && totalEntries > 0 && (
               <div className="mb-6 space-y-4 animate-fade-up">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                   {[
-                    { label: 'Total',      value: totalEntries,          color: 'text-blue-400' },
+                    { label: 'Total',      value: totalEntries,          color: 'text-primary' },
                     { label: 'Favorites',  value: favoriteCount,          color: 'text-yellow-400' },
-                    { label: 'Categories', value: categories.length,       color: 'text-violet-400' },
+                    { label: 'Categories', value: categories.length,       color: 'text-amber-300' },
                     { label: 'Weak',       value: securityStats.weak,      color: securityStats.weak   > 0 ? 'text-red-400'    : 'text-green-400' },
                     { label: 'Reused',     value: securityStats.reused,    color: securityStats.reused > 0 ? 'text-orange-400' : 'text-green-400' },
                     { label: 'Stale',      value: securityStats.stale,     color: securityStats.stale  > 0 ? 'text-yellow-400' : 'text-green-400' },
@@ -563,7 +581,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
                     <div className="space-y-1">
                       {recentlyUpdated.map(entry => {
                         const TypeIcon = ITEM_TYPE_ICONS[entry.type ?? 'login'] ?? Key;
-                        const gradients = ['from-blue-500 to-violet-600','from-violet-500 to-pink-600','from-emerald-500 to-teal-600','from-orange-500 to-red-600','from-cyan-500 to-blue-600'];
+                        const gradients = ['from-primary to-amber-700','from-stone-500 to-stone-700','from-emerald-500 to-teal-600','from-orange-500 to-red-600','from-sky-600 to-cyan-800'];
                         const letter = (entry.website || '?')[0].toUpperCase();
                         const gradient = gradients[letter.charCodeAt(0) % gradients.length];
                         return (
@@ -603,7 +621,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
                     <div className="space-y-1">
                       {recentlyUsed.map(entry => {
                         const TypeIcon = ITEM_TYPE_ICONS[entry.type ?? 'login'] ?? Key;
-                        const gradients = ['from-blue-500 to-violet-600','from-violet-500 to-pink-600','from-emerald-500 to-teal-600','from-orange-500 to-red-600','from-cyan-500 to-blue-600'];
+                        const gradients = ['from-primary to-amber-700','from-stone-500 to-stone-700','from-emerald-500 to-teal-600','from-orange-500 to-red-600','from-sky-600 to-cyan-800'];
                         const letter = (entry.website || '?')[0].toUpperCase();
                         const gradient = gradients[letter.charCodeAt(0) % gradients.length];
                         return (

@@ -204,7 +204,7 @@ export function ExtensionPopup() {
 
   if (authLoading) {
     return (
-      <div className="w-[360px] h-[480px] bg-[hsl(222_47%_5%)] text-foreground flex flex-col items-center justify-center gap-3">
+      <div className="w-[360px] h-[480px] bg-background text-foreground flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
         <p className="text-xs text-muted-foreground">Loading…</p>
       </div>
@@ -213,7 +213,7 @@ export function ExtensionPopup() {
 
   if (!isAuthenticated) {
     return (
-      <div className="w-[360px] bg-[hsl(222_47%_5%)] text-foreground flex flex-col">
+      <div className="w-[360px] bg-background text-foreground flex flex-col">
         <div className="flex items-center justify-center px-4 pt-8 pb-2">
           <div className="flex flex-col items-center gap-3">
             <div className="w-14 h-14 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -262,7 +262,7 @@ export function ExtensionPopup() {
 
   if (isUnlocked && newRecoveryKey) {
     return (
-      <div className="w-[360px] bg-[hsl(222_47%_5%)] text-foreground flex flex-col gap-3 p-5 animate-in fade-in duration-300">
+      <div className="w-[360px] bg-background text-foreground flex flex-col gap-3 p-5 animate-in fade-in duration-300">
         <p className="text-sm font-semibold">Save your recovery key</p>
         <p className="text-xs text-muted-foreground">If you forget your master password, this is the only way back in. It is shown once.</p>
         <div className="grid grid-cols-4 gap-1.5">
@@ -276,7 +276,7 @@ export function ExtensionPopup() {
 
   if (!isUnlocked) {
     return (
-      <div className="w-[360px] bg-[hsl(222_47%_5%)] text-foreground flex flex-col">
+      <div className="w-[360px] bg-background text-foreground flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
           <div className="flex items-center gap-2">
             <LogoIcon size="sm" />
@@ -369,11 +369,11 @@ export function ExtensionPopup() {
     : [];
 
   const letter = (entry: PasswordEntry) => (entry.website || '?')[0].toUpperCase();
-  const gradients = ['from-blue-500 to-violet-600', 'from-violet-500 to-pink-600', 'from-emerald-500 to-teal-600', 'from-orange-500 to-red-600'];
+  const gradients = ['from-primary to-amber-700', 'from-stone-500 to-stone-700', 'from-emerald-500 to-teal-600', 'from-orange-500 to-red-600'];
   const gradient = (entry: PasswordEntry) => gradients[letter(entry).charCodeAt(0) % gradients.length];
 
   return (
-    <div className="w-[360px] max-h-[560px] flex flex-col bg-[hsl(222_47%_5%)] text-foreground">
+    <div className="w-[360px] max-h-[560px] flex flex-col bg-background text-foreground">
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border/50">
         <div className="flex items-center gap-2">
           <LogoIcon size="sm" />

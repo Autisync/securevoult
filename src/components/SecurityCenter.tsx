@@ -142,7 +142,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
   const badgeVariant = (sev: 'high' | 'medium' | 'low') =>
     sev === 'high'   ? 'bg-red-500/15 text-red-400 border-red-500/20'
     : sev === 'medium' ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20'
-    : 'bg-blue-500/15 text-blue-400 border-blue-500/20';
+    : 'bg-primary/15 text-primary border-primary/20';
 
   // Group issues by type
   const groupedIssues = useMemo(() => {
@@ -150,7 +150,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
       { label: 'Weak passwords', key: 'weak', entries: issues.filter(i => i.issues.some(s => s.includes('Weak'))), icon: Lock, color: 'text-red-400', bg: 'bg-red-500/15', severity: 'high' as const },
       { label: 'Reused passwords', key: 'reused', entries: issues.filter(i => i.issues.some(s => s.includes('Reused'))), icon: RefreshCw, color: 'text-orange-400', bg: 'bg-orange-500/15', severity: 'high' as const },
       { label: 'Stale passwords', key: 'stale', entries: issues.filter(i => i.issues.some(s => s.includes('Not updated'))), icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-500/15', severity: 'medium' as const },
-      { label: 'Missing URL', key: 'nourl', entries: issues.filter(i => i.issues.some(s => s.includes('No URL'))), icon: Globe, color: 'text-blue-400', bg: 'bg-blue-500/15', severity: 'low' as const },
+      { label: 'Missing URL', key: 'nourl', entries: issues.filter(i => i.issues.some(s => s.includes('No URL'))), icon: Globe, color: 'text-primary', bg: 'bg-primary/15', severity: 'low' as const },
       { label: 'No 2FA', key: 'no2fa', entries: issues.filter(i => i.issues.some(s => s.includes('2FA'))), icon: ShieldAlert, color: 'text-violet-400', bg: 'bg-violet-500/15', severity: 'low' as const },
     ].filter(g => g.entries.length > 0);
     return groups;
@@ -211,7 +211,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
             <div className="flex gap-4 mt-2.5 text-xs">
               <span className="text-red-400 font-medium"><strong>{highCount}</strong> High</span>
               <span className="text-yellow-400 font-medium"><strong>{medCount}</strong> Medium</span>
-              <span className="text-blue-400 font-medium"><strong>{lowCount}</strong> Low</span>
+              <span className="text-primary font-medium"><strong>{lowCount}</strong> Low</span>
             </div>
           </div>
         </div>
@@ -251,7 +251,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
             { icon: Lock,          label: 'Weak',       count: weakCount,   color: 'text-red-400',    bg: 'bg-red-500/10' },
             { icon: RefreshCw,     label: 'Reused',     count: reusedCount, color: 'text-orange-400', bg: 'bg-orange-500/10' },
             { icon: AlertTriangle, label: 'Stale',      count: staleCount,  color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-            { icon: Globe,         label: 'Missing URL',count: noUrlCount,  color: 'text-blue-400',   bg: 'bg-blue-500/10' },
+            { icon: Globe,         label: 'Missing URL',count: noUrlCount,  color: 'text-primary',   bg: 'bg-primary/10' },
             { icon: ShieldAlert,   label: 'No 2FA', count: no2faCount,  color: 'text-violet-400', bg: 'bg-violet-500/10' },
           ].map(({ icon: Icon, label, count, color, bg }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">

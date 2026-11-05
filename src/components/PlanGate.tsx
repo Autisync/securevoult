@@ -73,7 +73,7 @@ interface PlanBadgeProps {
 
 const PLAN_BADGE_STYLES: Record<PlanId, string> = {
   free:       'bg-secondary text-muted-foreground border-border',
-  pro:        'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  pro:        'bg-primary/15 text-primary border-primary/25',
   company:    'bg-violet-500/15 text-violet-400 border-violet-500/25',
   enterprise: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
 };

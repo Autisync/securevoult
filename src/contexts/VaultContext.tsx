@@ -9,6 +9,8 @@ import {
   MfaRequiredError, type NewEntry,
 } from '@/lib/vault';
 import { mfaApi, setMfaToken } from '@/lib/mfa-client';
+import { unlockWithDevice as deviceKey } from '@/lib/biometric';
+import { AuthService } from '@/lib/auth';
 import { rewrapVaultKey, exportRawKey, importRawKey, type KeyHeader, type VaultKey } from '@/lib/vault-crypto';
 import { getVaultPreference } from '@/hooks/useVaultPreferences';
 import { mergeVaults } from '@/lib/vault-merge';
@@ -125,6 +127,10 @@ interface VaultContextType extends VaultState {
   recoverVault: (recoveryKey: string, newMasterPassword: string) => Promise<void>;
   /** The user has saved the key shown in newRecoveryKey. */
   dismissRecoveryKey: () => void;
+  /** Unlock with Windows Hello / Touch ID / fingerprint (set up in Settings). */
+  unlockWithDevice: () => Promise<void>;
+  /** The open vault's key header (for setting up device unlock). */
+  getKeyHeader: () => KeyHeader | null;
 }
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -269,6 +275,26 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
   };
 
   const lockVault = () => { forget(); void session?.clear().catch(() => {}); dispatch({ type: 'LOCK_VAULT' }); };
+
+  const unlockWithDevice = async () => {
+    if (!isAuthenticated) throw new Error('Please sign in first');
+    dispatch({ type: 'SET_LOADING', payload: true });
+    dispatch({ type: 'SET_ERROR', payload: null });
+    try {
+      const opened = await openWithKey(await deviceKey(AuthService.currentUid()));
+      keyRef.current = null;
+      adopt(opened);
+      vaultRef.current = opened.vault;
+      dispatch({ type: 'UNLOCK_VAULT', payload: { vault: opened.vault } });
+    } catch (error) {
+      if (error instanceof MfaRequiredError) { dispatch({ type: 'SET_2FA', payload: 'required' }); return; }
+      const msg = error instanceof Error && error.name === 'NotAllowedError' ? 'Cancelled. Try again or use your master password.'
+        : error instanceof Error ? error.message : 'Could not unlock';
+      dispatch({ type: 'SET_ERROR', payload: msg });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
 
   const createRecoveryKit = async (masterPassword: string) => {
     if (!vaultRef.current || !keyRef.current) throw new Error('Unlock the vault first');
@@ -458,6 +484,8 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
     changeMasterPassword, refresh, hasVault, findEntriesForCurrentDomain,
     verifySecondFactor, refreshSecondFactor, createRecoveryKit, recoverVault,
     dismissRecoveryKey: () => dispatch({ type: 'SET_RECOVERY', payload: { key: null } }),
+    unlockWithDevice,
+    getKeyHeader: () => keyRef.current?.header ?? null,
     vaultConflict: null,
     dismissConflict: () => {},
   };
