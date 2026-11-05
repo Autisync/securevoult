@@ -45,6 +45,8 @@ function loadEnv() {
 }
 
 const envVars = loadEnv();
+// In the Docker build there is no .env.local: NEXT_PUBLIC_* arrive as build arguments.
+for (const [k, v] of Object.entries(process.env)) if (k.startsWith('NEXT_PUBLIC_') && v && !envVars[k]) envVars[k] = v;
 const appUrl = envVars['NEXT_PUBLIC_APP_URL'] ?? 'https://vault.autisync.com';
 const appOrigin = (() => {
   try {

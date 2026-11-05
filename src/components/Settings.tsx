@@ -863,13 +863,17 @@ export function Settings({ onClose }: SettingsProps) {
                 </div>
               </div>
               <div className="border-t border-border/50 px-4 py-3 bg-secondary/20 space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Installation</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Install it in Chrome, Edge or Brave</p>
+                <a href="/downloads/securevoult-extension.zip" download className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
+                  <FileDown className="w-4 h-4" />Download the extension
+                </a>
                 <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-                  <li>Download the extension package from the <strong>INSTALL.md</strong> in <code className="bg-secondary px-1 rounded">extension-package/</code></li>
-                  <li>Open <strong>chrome://extensions</strong> and enable Developer Mode</li>
-                  <li>Click <em>Load unpacked</em> and select the extension folder</li>
-                  <li>Pin the SecureVoult icon to your toolbar</li>
+                  <li>Unzip the download. Keep the <strong>securevoult-extension</strong> folder somewhere you won&apos;t delete it</li>
+                  <li>Open <strong>chrome://extensions</strong> (or <strong>edge://extensions</strong>) and switch on <strong>Developer mode</strong></li>
+                  <li>Click <strong>Load unpacked</strong> and choose the securevoult-extension folder</li>
+                  <li>Click the puzzle icon and pin SecureVoult to your toolbar, then sign in</li>
                 </ol>
+                <p className="text-xs text-muted-foreground">A one-click install from the Chrome Web Store is on the way.</p>
               </div>
             </div>
           </Section>

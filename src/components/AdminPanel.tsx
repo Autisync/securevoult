@@ -129,7 +129,7 @@ function ExtensionSection() {
 
   const handleDownload = () => {
     const a = document.createElement('a');
-    a.href = '/api/extension/download';
+    a.href = '/downloads/securevoult-extension.zip';
     a.download = 'securevoult-extension.zip';
     a.click();
     toast({ title: 'Downloading extension package…', description: 'Unzip and load the folder via developer mode.' });

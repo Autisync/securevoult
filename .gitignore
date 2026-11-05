@@ -70,3 +70,6 @@ extension-package/passkey-page.js
 extension-package/popup.bundle.js
 extension-package/popup.bundle.css
 extension-package/popup.styles.css
+
+# Built in the Docker image by scripts/package-extension.mjs
+public/downloads/

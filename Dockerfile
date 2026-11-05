@@ -22,6 +22,8 @@ ARG NEXT_PUBLIC_FIREBASE_APP_ID
 ARG NEXT_PUBLIC_APP_URL
 ENV NEXT_TELEMETRY_DISABLED=1 NEXT_OUTPUT=standalone
 RUN npm run build
+# The browser extension, zipped into public/downloads for Settings → Extension.
+RUN node scripts/package-extension.mjs
 
 FROM node:22-bookworm-slim AS run
 WORKDIR /app
