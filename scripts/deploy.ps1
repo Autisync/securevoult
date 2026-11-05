@@ -3,8 +3,10 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\deploy.ps1
 #
 # 1. Builds .env.production from .env.local (production address, own database,
-#    admin account) and copies it to the server, readable only by you.
-# 2. Pushes the code, then on the server: git pull, rebuild, restart.
+#    admin account) and sends it to the server, readable only by you.
+# 2. Pushes the code, then on the server: git pull, merge the settings, rebuild,
+#    restart. The merge (scripts/merge-env.py) keeps what was set up on the
+#    server itself: email, CRM tokens, email masking, breach key.
 # Nothing secret is printed.
 
 $ErrorActionPreference = 'Stop'
@@ -30,12 +32,12 @@ if (-not (Select-String -Path .env.local -Pattern '^SECUREVOULT_SERVER_SECRET=.{
   -replace '^UPSTASH_REDIS_REST_URL=.*', 'UPSTASH_REDIS_REST_URL=' `
   -replace '^UPSTASH_REDIS_REST_TOKEN=.*', 'UPSTASH_REDIS_REST_TOKEN=' |
   Set-Content .env.production
-scp -q -i $Key .env.production "${Server}:$Dir/.env.production"
-ssh -i $Key $Server "chmod 600 $Dir/.env.production"
+scp -q -i $Key .env.production "${Server}:$Dir/.env.production.incoming"
+ssh -i $Key $Server "chmod 600 $Dir/.env.production.incoming"
 
 Write-Host '2/3  Code'
 git push
 
 Write-Host '3/3  Server: pull, rebuild, restart'
-ssh -i $Key $Server "cd $Dir && git pull --ff-only && export BUILD_SHA=`$(git rev-parse --short HEAD) && $Compose up -d --build && $Compose ps && sleep 8 && curl -s http://127.0.0.1:3100/api/health; echo"
+ssh -i $Key $Server "cd $Dir && git pull --ff-only && python3 scripts/merge-env.py && export BUILD_SHA=`$(git rev-parse --short HEAD) && $Compose up -d --build && $Compose ps && sleep 8 && curl -s http://127.0.0.1:3100/api/health; echo"
 Write-Host 'Done: https://vault.autisync.com'

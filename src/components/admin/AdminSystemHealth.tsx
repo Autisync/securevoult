@@ -150,7 +150,7 @@ export function AdminSystemHealth() {
       status: (health.checks.email?.configured ? 'ok' : 'warn') as 'ok' | 'warn' | 'error',
       detail: health.checks.email?.configured
         ? `On · ${health.checks.securityEvents?.critical24h ?? 0} critical event${health.checks.securityEvents?.critical24h === 1 ? '' : 's'} in the last 24 hours (Security log)`
-        : 'Off: add the SMTP settings (same as the CRM) to .env.local and deploy',
+        : 'Off: on the server run  bash ~/securevoult/scripts/mail-setup.sh',
     },
     {
       label: 'Rate limiting',
