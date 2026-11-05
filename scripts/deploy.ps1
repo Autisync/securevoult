@@ -37,5 +37,5 @@ Write-Host '2/3  Code'
 git push
 
 Write-Host '3/3  Server: pull, rebuild, restart'
-ssh -i $Key $Server "cd $Dir && git pull --ff-only && $Compose up -d --build && $Compose ps && sleep 8 && curl -s http://127.0.0.1:3100/api/health; echo"
+ssh -i $Key $Server "cd $Dir && git pull --ff-only && export BUILD_SHA=`$(git rev-parse --short HEAD) && $Compose up -d --build && $Compose ps && sleep 8 && curl -s http://127.0.0.1:3100/api/health; echo"
 Write-Host 'Done: https://vault.autisync.com'

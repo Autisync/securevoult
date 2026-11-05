@@ -30,7 +30,7 @@ function Reveal({ children, className = '', delay = 0 }: { children: React.React
     return () => io.disconnect();
   }, []);
   return (
-    <div ref={ref} className={`${className} transition-all duration-700 ease-[cubic-bezier(.22,1,.36,1)] ${state === 'hidden' ? 'opacity-0 translate-y-6' : 'opacity-100 translate-y-0'}`}
+    <div ref={ref} className={`${className} transition-all duration-700 [transition-timing-function:cubic-bezier(.22,1,.36,1)] ${state === 'hidden' ? 'opacity-0 translate-y-6' : 'opacity-100 translate-y-0'}`}
       style={{ transitionDelay: state === 'shown' ? `${delay}ms` : '0ms' }}>
       {children}
     </div>

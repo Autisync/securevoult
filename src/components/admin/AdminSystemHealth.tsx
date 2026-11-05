@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Database, Shield, Zap, Package, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Loader2, RefreshCw, Database, Shield, Zap, Package, CheckCircle2, AlertTriangle, XCircle, Archive, HardDrive, Paperclip } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { AuthService } from '@/lib/auth';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -14,12 +15,20 @@ interface HealthData {
     database: { status: string; pingMs: number | null; configured: boolean };
     firebaseAdmin: { status: string };
     rateLimiting: { mode: string };
+    backups?: { visible: boolean; count: number; latestAt: string | null; latestBytes: number; totalBytes: number };
+    disk?: { freeBytes: number; totalBytes: number } | null;
+    files?: { count: number; bytes: number } | null;
   };
   build: {
     version: string;
+    commit?: string;
     nodeEnv: string;
+    uptimeSeconds?: number;
   };
 }
+
+const size = (n: number) => n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`;
+const uptime = (s?: number) => s === undefined ? '' : s > 86400 ? `up ${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h` : s > 3600 ? `up ${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m` : `up ${Math.max(1, Math.floor(s / 60))}m`;
 
 function StatusIcon({ status }: { status: 'ok' | 'warn' | 'error' }) {
   if (status === 'ok')   return <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />;
@@ -78,19 +87,48 @@ export function AdminSystemHealth() {
       status: (fbOk ? 'ok' : 'error') as 'ok' | 'warn' | 'error',
       detail: fbOk ? 'Credentials configured' : 'Missing environment variables',
     },
+    (() => {
+      const b = health.checks.backups;
+      const ageH = b?.latestAt ? (Date.now() - new Date(b.latestAt).getTime()) / 3.6e6 : Infinity;
+      return {
+        label: 'Backups',
+        icon: Archive,
+        status: (!b?.visible ? 'warn' : ageH < 26 ? 'ok' : ageH < 50 ? 'warn' : 'error') as 'ok' | 'warn' | 'error',
+        detail: !b?.visible
+          ? 'Backup folder not visible to the app (redeploy to mount it)'
+          : !b.latestAt
+            ? 'No backups yet: the first one runs within 24 hours of the backup container starting'
+            : `Nightly · last ${formatDistanceToNow(new Date(b.latestAt), { addSuffix: true })} (${size(b.latestBytes)}) · ${b.count} kept, ${size(b.totalBytes)}`,
+      };
+    })(),
+    ...(health.checks.disk ? [(() => {
+      const d = health.checks.disk!; const pct = d.totalBytes ? (d.freeBytes / d.totalBytes) * 100 : 100;
+      return {
+        label: 'Disk space',
+        icon: HardDrive,
+        status: (pct > 15 ? 'ok' : pct > 5 ? 'warn' : 'error') as 'ok' | 'warn' | 'error',
+        detail: `${size(d.freeBytes)} free of ${size(d.totalBytes)} (${pct.toFixed(0)}%)`,
+      };
+    })()] : []),
+    ...(health.checks.files ? [{
+      label: 'Encrypted files',
+      icon: Paperclip,
+      status: 'ok' as 'ok' | 'warn' | 'error',
+      detail: `${health.checks.files.count} file${health.checks.files.count === 1 ? '' : 's'} · ${size(health.checks.files.bytes)} stored`,
+    }] : []),
     {
       label: 'Rate limiting',
       icon: Zap,
-      status: (health.checks.rateLimiting.mode === 'redis' ? 'ok' : 'warn') as 'ok' | 'warn' | 'error',
+      status: 'ok' as 'ok' | 'warn' | 'error',
       detail: health.checks.rateLimiting.mode === 'redis'
-        ? 'Redis — distributed'
-        : 'In-memory — single process (upgrade to Redis for production scale)',
+        ? 'Shared Redis (Upstash)'
+        : 'In this server\'s memory: right for a single server',
     },
     {
       label: 'Application',
       icon: Package,
       status: 'ok' as 'ok' | 'warn' | 'error',
-      detail: `v${health.build.version} · ${health.build.nodeEnv}`,
+      detail: [`v${health.build.version}`, health.build.commit && health.build.commit !== 'dev' ? `commit ${health.build.commit}` : null, health.build.nodeEnv, uptime(health.build.uptimeSeconds)].filter(Boolean).join(' · '),
     },
   ] : [];
 
@@ -146,9 +184,10 @@ export function AdminSystemHealth() {
       <div className="bg-card border border-border rounded-xl p-4 space-y-2">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Notes</p>
         <ul className="space-y-1.5 text-xs text-muted-foreground list-disc list-inside">
-          <li>Rate limiting is currently in-memory. For multi-region production deployments, configure a Redis adapter.</li>
-          <li>Backup and export scheduling is not yet automated — export vault data manually from the admin panel.</li>
-          <li>No secrets or environment variable values are exposed here — only configuration readiness status.</li>
+          <li>The database is backed up every night on the server; the last 14 are kept. Vaults and files in them stay encrypted.</li>
+          <li>Backups live on the same server. For off-site protection, copy the backups folder somewhere else from time to time.</li>
+          <li>Rate limits are kept in memory, which is right for one server. Add Upstash Redis only if you run several app servers.</li>
+          <li>No secrets or environment values are shown here, only whether things are set up.</li>
         </ul>
       </div>
     </div>

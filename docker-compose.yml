@@ -19,11 +19,15 @@ services:
         NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
         NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        BUILD_SHA: ${BUILD_SHA:-dev}
     image: securevoult:latest
     restart: unless-stopped
     env_file: .env.production
     environment:
       MONGODB_URI: mongodb://mongo:27017/securevoult
+    # Read-only, so Admin → System health can show when the last backup ran.
+    volumes:
+      - ./backups:/backups:ro
     ports:
       - "127.0.0.1:3100:3000"
     depends_on:

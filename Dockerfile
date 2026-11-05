@@ -26,6 +26,9 @@ RUN npm run build
 FROM node:22-bookworm-slim AS run
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+# Which commit this image was built from (shown in Admin → System health).
+ARG BUILD_SHA=dev
+ENV BUILD_SHA=$BUILD_SHA
 RUN useradd --uid 10001 --create-home app
 COPY --from=build --chown=app:app /app/.next/standalone ./
 COPY --from=build --chown=app:app /app/.next/static ./.next/static
