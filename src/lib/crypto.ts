@@ -122,39 +122,61 @@ export class CryptoService {
     return chars.join('');
   }
 
-  // Check password strength
+  /**
+   * Password strength. Length and variety earn points; the patterns people
+   * really use (a word plus a year or "!", keyboard runs, common passwords,
+   * repeats) cap it, so "Password1!" counts as weak, as other managers rate it.
+   */
   static checkPasswordStrength(password: string): PasswordStrengthResult {
     const feedback: string[] = [];
     let score = 0;
+    const pw = password ?? '';
+    const lower = pw.toLowerCase();
 
-    // Length check
-    if (password.length >= 12) score += 2;
-    else if (password.length >= 8) score += 1;
-    else feedback.push('Use at least 8 characters');
+    if (pw.length >= 16) score += 3;
+    else if (pw.length >= 12) score += 2;
+    else if (pw.length >= 8) score += 1;
+    else feedback.push('Use at least 12 characters');
 
-    // Character variety checks
-    if (/[a-z]/.test(password)) score += 1;
-    else feedback.push('Include lowercase letters');
+    const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^a-zA-Z0-9]/].filter((r) => r.test(pw)).length;
+    score += classes;
+    if (!/[A-Z]/.test(pw)) feedback.push('Include uppercase letters');
+    if (!/\d/.test(pw)) feedback.push('Include numbers');
+    if (!/[^a-zA-Z0-9]/.test(pw)) feedback.push('Include special characters');
 
-    if (/[A-Z]/.test(password)) score += 1;
-    else feedback.push('Include uppercase letters');
-
-    if (/\d/.test(password)) score += 1;
-    else feedback.push('Include numbers');
-
-    if (/[^a-zA-Z0-9]/.test(password)) score += 1;
-    else feedback.push('Include special characters');
-
-    // Common patterns check
-    if (!/(.)\1{2,}/.test(password)) score += 1;
-    else feedback.push('Avoid repeating characters');
+    // Patterns that make a password easy to guess, whatever its length.
+    const common = COMMON_PASSWORDS.has(lower) || COMMON_PASSWORDS.has(lower.replace(/[\d!@#$%^&*?._-]+$/, ''));
+    const wordThenDigits = /^[a-z]{3,12}[\d!@#$%^&*?._-]{0,6}$/i.test(pw) && pw.length < 14;
+    const sequence = /(0123|1234|2345|3456|4567|5678|6789|abcd|bcde|qwer|wert|asdf|sdfg|zxcv|1qaz|qazw)/i.test(pw);
+    const repeats = /(.)\1{2,}/.test(pw);
+    const fewUnique = new Set(pw).size < Math.min(6, Math.ceil(pw.length / 2));
+    if (repeats) { score -= 1; feedback.push('Avoid repeating characters'); }
+    if (sequence) { score -= 1; feedback.push('Avoid runs like 1234 or qwerty'); }
 
     let strength: PasswordStrength;
-    if (score >= 6) strength = 'strong';
-    else if (score >= 4) strength = 'good';
-    else if (score >= 2) strength = 'fair';
+    if (score >= 7 && pw.length >= 14) strength = 'strong';
+    else if (score >= 5 && pw.length >= 10) strength = 'good';
+    else if (score >= 3 && pw.length >= 8) strength = 'fair';
     else strength = 'weak';
 
-    return { strength, score, feedback };
+    // Hard caps.
+    if (pw.length < 8 || common || fewUnique) {
+      strength = 'weak';
+      if (common) feedback.unshift('This is a commonly used password');
+    } else if (wordThenDigits && strength !== 'weak') {
+      strength = 'weak';
+      feedback.unshift('A word plus numbers is easy to guess');
+    }
+
+    return { strength, score: Math.max(0, score), feedback };
   }
 }
+/** The most common passwords and base words (lower case). */
+const COMMON_PASSWORDS = new Set([
+  'password', 'passw0rd', 'p@ssword', 'p@ssw0rd', 'pass', 'welcome', 'letmein', 'qwerty', 'qwertyuiop', 'asdfgh', 'zxcvbn', 'admin', 'administrator',
+  'login', 'iloveyou', 'monkey', 'dragon', 'football', 'baseball', 'sunshine', 'princess', 'shadow', 'master', 'superman', 'batman', 'trustno1',
+  'abc123', '123456', '1234567', '12345678', '123456789', '1234567890', '111111', '000000', '123123', '654321', 'secret', 'changeme', 'default',
+  'hello', 'freedom', 'whatever', 'charlie', 'michael', 'jennifer', 'jordan', 'hunter', 'buster', 'soccer', 'harley', 'ranger', 'summer', 'winter',
+  'autumn', 'spring', 'london', 'liverpool', 'chelsea', 'arsenal', 'benfica', 'porto', 'sporting', 'angola', 'luanda', 'lisboa', 'portugal',
+  'computer', 'internet', 'samsung', 'google', 'facebook', 'instagram', 'linkedin', 'company', 'business', 'office', 'welcome1', 'test', 'guest',
+]);

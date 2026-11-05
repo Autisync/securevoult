@@ -15,8 +15,14 @@ import { useToast } from '@/components/ui/use-toast';
 import {
   Search, Key, Copy, ExternalLink, Plus, Settings, Lock, Check,
   Globe, Save, ShieldCheck, X, Clock, Eye, EyeOff, Mail,
-  LogIn, AlertCircle,
+  LogIn, AlertCircle, Bell, Wrench, RefreshCw, Maximize2, ChevronLeft, Wand2, VenetianMask, HeartPulse, ScanSearch, LogOut,
 } from 'lucide-react';
+import { useNotifications } from '@/hooks/useNotifications';
+import { NotificationList } from '@/components/NotificationList';
+import { ITEM_TYPES, ITEM_TYPE, typeOf } from '@/lib/item-types';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface TabInfo {
   url: string;
@@ -47,7 +53,10 @@ export function ExtensionPopup() {
   const [vaultMode, setVaultMode] = useState<'unlock' | 'create'>('unlock');
 
   const { copied, copy: clipboardCopy } = useClipboard();
-  const { secondFactor, newRecoveryKey, dismissRecoveryKey, isUnlocked, vault, error: vaultError, isLoading: vaultLoading, findEntriesForCurrentDomain, getFilteredEntries, lockVault, addEntry, unlockVault, createVault } = useVault();
+  const { secondFactor, newRecoveryKey, dismissRecoveryKey, isUnlocked, vault, error: vaultError, isLoading: vaultLoading, findEntriesForCurrentDomain, getFilteredEntries, lockVault, addEntry, unlockVault, createVault, refresh, syncStatus } = useVault();
+  const notes = useNotifications();
+  const [panel, setPanel] = useState<'list' | 'notifications' | 'tools' | 'create'>('list');
+  const [syncing, setSyncing] = useState(false);
   const { isAuthenticated, isLoading: authLoading, user, signIn, signOut } = useAuth();
   const { toast } = useToast();
 
@@ -87,8 +96,8 @@ export function ExtensionPopup() {
     if (vaultError && /no vault found/i.test(vaultError)) setVaultMode('create');
   }, [vaultError]);
 
-  const openFullApp = () => {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://vault.autisync.com';
+  const openFullApp = (hash = '') => {
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://vault.autisync.com') + (typeof hash === 'string' && hash ? `/#/vault/${hash}` : '');
     if (typeof chrome !== 'undefined' && chrome.tabs) {
       chrome.tabs.create({ url: appUrl });
     } else {
@@ -251,7 +260,7 @@ export function ExtensionPopup() {
             {signInLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><LogIn className="w-4 h-4" />Sign in</>}
           </button>
           <div className="text-center pt-1">
-            <button type="button" onClick={openFullApp} className="text-[11px] text-muted-foreground hover:text-primary transition-colors">No account yet, or forgot your password? Open the web app</button>
+            <button type="button" onClick={() => openFullApp()} className="text-[11px] text-muted-foreground hover:text-primary transition-colors">No account yet, or forgot your password? Open the web app</button>
           </div>
         </form>
       </div>
@@ -343,7 +352,7 @@ export function ExtensionPopup() {
               </button>
             </form>
             <button onClick={() => { setVaultMode('create'); setMasterPwError(''); setMasterPw(''); }} className="mt-3 text-[11px] text-muted-foreground hover:text-foreground transition-colors">First time? Set up a new vault →</button>
-            <button onClick={openFullApp} className="mt-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors">Open full app ↗</button>
+            <button onClick={() => openFullApp()} className="mt-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors">Open full app ↗</button>
           </div>
         )}
       </div>
@@ -365,30 +374,136 @@ export function ExtensionPopup() {
   const letter = (entry: PasswordEntry) => (entry.website || '?')[0].toUpperCase();
   const gradients = ['from-primary to-amber-700', 'from-stone-500 to-stone-700', 'from-emerald-500 to-teal-600', 'from-orange-500 to-red-600'];
   const gradient = (entry: PasswordEntry) => gradients[letter(entry).charCodeAt(0) % gradients.length];
+  const initials = (user?.displayName || user?.email || 'U').split(/[\s@.]/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const breachNotes = notes.items.filter(n => n.kind === 'breach' && !n.read).length;
+
+  const doSync = async () => {
+    setSyncing(true);
+    try { await refresh(); toast({ title: 'Vault synced' }); } catch { toast({ title: 'Sync failed', variant: 'destructive' }); }
+    setSyncing(false);
+  };
+
+  const Row = ({ entry }: { entry: PasswordEntry }) => {
+    const t = typeOf(entry);
+    const isLogin = t === 'login';
+    return (
+      <div className="group flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/70 transition-colors">
+        <button onClick={() => (isLogin ? handleAutoFill(entry) : openFullApp('all'))} title={isLogin ? 'Fill on this page' : 'Open in SecureVoult'} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradient(entry)} flex items-center justify-center flex-shrink-0 shadow-sm`}><span className="text-sm font-bold text-white">{letter(entry)}</span></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate flex items-center gap-1.5">{entry.website}{!!entry.passkeys?.length && <span className="text-[10px] font-semibold px-1.5 rounded bg-emerald-500/15 text-emerald-300">Passkey</span>}</p>
+            <p className="text-xs text-muted-foreground truncate">{isLogin ? (entry.username || 'No username') : ITEM_TYPE[t].label}</p>
+          </div>
+        </button>
+        {isLogin && (
+          <div className="flex items-center gap-0.5">
+            <button onClick={() => copyToClipboard(entry.username, 'Username', entry.id)} title="Copy username" aria-label="Copy username" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Username' ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}</button>
+            <button onClick={() => copyToClipboard(entry.password, 'Password', entry.id)} title="Copy password" aria-label="Copy password" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Password' ? <Check className="w-4 h-4 text-green-400" /> : <Key className="w-4 h-4" />}</button>
+            {entry.totp && <button onClick={() => copyTotp(entry)} title="Copy 2FA code" aria-label="Copy 2FA code" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + '2FA code' ? <Check className="w-4 h-4 text-green-400" /> : <ShieldCheck className="w-4 h-4" />}</button>}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const PanelHeader = ({ title }: { title: string }) => (
+    <div className="flex-shrink-0 flex items-center gap-2 px-3 h-14 border-b border-border/50">
+      <button onClick={() => setPanel('list')} aria-label="Back" className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-secondary/70"><ChevronLeft className="w-5 h-5" /></button>
+      <h2 className="text-lg font-semibold">{title}</h2>
+    </div>
+  );
+
+  const tools = [
+    { label: 'Password generator', icon: Wand2, hash: 'generator', cls: 'text-orange-300' },
+    { label: 'Email masking', icon: VenetianMask, hash: 'masking', cls: 'text-sky-300' },
+    { label: 'Password health', icon: HeartPulse, hash: 'security', cls: 'text-rose-300' },
+    { label: 'Data breach scanner', icon: ScanSearch, hash: 'breach', cls: 'text-emerald-300', badge: breachNotes },
+  ];
 
   return (
-    <div className="w-[360px] max-h-[560px] flex flex-col bg-background text-foreground">
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border/50">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Logo size="sm" showText={!tabInfo} />
-          {tabInfo && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Globe className="w-3 h-3" />
-              <span className="max-w-[140px] truncate">{tabInfo.domain}</span>
-              {matchingEntries.length > 0 && (
-                <span className="bg-primary/20 text-primary px-1.5 py-0.5 rounded text-[10px] font-medium">{matchingEntries.length} match{matchingEntries.length !== 1 ? 'es' : ''}</span>
-              )}
+    <div className="w-[360px] h-[580px] flex flex-col bg-background text-foreground">
+      {panel === 'notifications' && (
+        <>
+          <PanelHeader title="Notifications" />
+          <div className="flex-1 overflow-y-auto">
+            <NotificationList dense items={notes.items} onMarkAll={() => void notes.markRead()}
+              onOpen={(n) => { void notes.markRead([n.id]); openFullApp(n.kind === 'breach' ? 'breach' : 'all'); }} />
+          </div>
+        </>
+      )}
+
+      {panel === 'tools' && (
+        <>
+          <PanelHeader title="Tools" />
+          <div className="flex-1 overflow-y-auto p-3">
+            <div className="grid grid-cols-2 gap-2.5">
+              {tools.map(({ label, icon: Icon, hash, cls, badge }) => (
+                <button key={hash} onClick={() => openFullApp(hash)} className="relative h-[104px] rounded-2xl bg-secondary/60 hover:bg-secondary border border-border/50 p-3.5 text-left flex flex-col justify-between transition-colors">
+                  <Icon className={`w-7 h-7 ${cls}`} />
+                  <span className="text-sm font-semibold leading-tight">{label}</span>
+                  {!!badge && <span className="absolute top-3 right-3 min-w-[22px] h-[22px] px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">{badge > 9 ? '9+' : badge}</span>}
+                </button>
+              ))}
             </div>
+            <p className="text-xs text-muted-foreground mt-4 px-1">Each tool opens in the full SecureVoult app.</p>
+          </div>
+        </>
+      )}
+
+      {panel === 'create' && (
+        <>
+          <PanelHeader title="Create item" />
+          <div className="flex-1 overflow-y-auto p-2">
+            {ITEM_TYPES.map(({ type, label, hint, icon: Icon, color }) => (
+              <button key={type} onClick={() => openFullApp(`new/${type}`)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/70 text-left">
+                <span className={`w-10 h-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0 ${color}`}><Icon className="w-5 h-5" /></span>
+                <span className="min-w-0"><span className="block text-sm font-semibold">{label}</span><span className="block text-xs text-muted-foreground truncate">{hint}</span></span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {panel === 'list' && (
+      <>
+      <div className="flex-shrink-0 flex items-center justify-between px-4 h-14">
+        <div className="flex items-center gap-2 min-w-0">
+          <LogoMark px={24} className="flex-shrink-0" />
+          <h1 className="text-lg font-semibold">Vault</h1>
+          {tabInfo && matchingEntries.length > 0 && (
+            <span className="bg-primary/15 text-primary px-1.5 py-0.5 rounded-md text-[11px] font-medium truncate max-w-[110px]" title={tabInfo.domain}>{matchingEntries.length} for {tabInfo.domain}</span>
           )}
         </div>
-        <button onClick={openFullApp} title="Open full app" className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
-          <Settings className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setPanel('notifications')} aria-label={notes.unread ? `Notifications, ${notes.unread} unread` : 'Notifications'} className="relative w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/70">
+            <Bell className="w-5 h-5" />
+            {notes.unread > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{notes.unread > 99 ? '99+' : notes.unread}</span>}
+          </button>
+          <button onClick={() => setPanel('tools')} aria-label="Tools" className="relative w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/70">
+            <Wrench className="w-5 h-5" />
+            {breachNotes > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />}
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button aria-label="Account" className="ml-1 w-9 h-9 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center hover:ring-2 hover:ring-primary/40">{initials}</button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal"><span className="block text-xs text-muted-foreground">Signed in as</span><span className="block text-sm truncate">{user?.email}</span></DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => openFullApp('all')}><Maximize2 className="mr-2 h-4 w-4" />Open SecureVoult</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openFullApp('settings')}><Settings className="mr-2 h-4 w-4" />Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => lockVault()}><Lock className="mr-2 h-4 w-4" />Lock vault</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive"><LogOut className="mr-2 h-4 w-4" />Sign out</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-      <div className="flex-shrink-0 px-3 py-2.5 border-b border-border/50">
+      <div className="flex-shrink-0 px-3 pb-3">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-          <input type="text" placeholder="Search vault…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full h-8 pl-8 pr-3 text-xs bg-secondary/50 border border-border/60 rounded-lg focus:outline-none focus:border-primary transition-colors" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-muted-foreground pointer-events-none" />
+          <input type="text" placeholder="Search all items" aria-label="Search all items" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} autoFocus
+            className="w-full h-11 pl-11 pr-3 text-sm bg-secondary/60 border border-border/70 rounded-xl focus:outline-none focus:border-primary transition-colors placeholder:text-muted-foreground" />
         </div>
       </div>
       {pendingSave && !pendingDismissed && pendingEdit && (
@@ -430,87 +545,50 @@ export function ExtensionPopup() {
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0 border-t border-border/40">
         {filteredEntries.length > 0 ? (
           <div className="p-2">
-            {!searchQuery && tabInfo && matchingEntries.length > 0 && <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-wider">Saved for {tabInfo.domain}</p>}
-            {searchQuery && <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-wider">{filteredEntries.length} result{filteredEntries.length !== 1 ? 's' : ''}</p>}
-            <div className="space-y-0.5">
-              {filteredEntries.map(entry => (
-                <div key={entry.id} className="group flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-secondary/60 transition-colors animate-in fade-in slide-in-from-bottom-1 duration-300">
-                  <button onClick={() => handleAutoFill(entry)} title="Fill on this page" className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
-                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${gradient(entry)} flex items-center justify-center flex-shrink-0 shadow-sm`}><span className="text-xs font-bold text-white">{letter(entry)}</span></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium truncate flex items-center gap-1.5">{entry.website}{!!entry.passkeys?.length && <span className="text-[9px] font-semibold px-1 rounded bg-emerald-500/15 text-emerald-300">Passkey</span>}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{entry.username || 'No username'}</p>
-                    </div>
-                  </button>
-                  <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button onClick={() => copyToClipboard(entry.username, 'Username', entry.id)} title="Copy username" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Username' ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}</button>
-                    <button onClick={() => copyToClipboard(entry.password, 'Password', entry.id)} title="Copy password" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Password' ? <Check className="w-3 h-3 text-green-400" /> : <Key className="w-3 h-3" />}</button>
-                    {entry.totp && <button onClick={() => copyTotp(entry)} title="Copy 2FA code" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + '2FA code' ? <Check className="w-3 h-3 text-green-400" /> : <ShieldCheck className="w-3 h-3" />}</button>}
-                    {entry.url && <button onClick={() => window.open(entry.url, '_blank', 'noopener,noreferrer')} title="Open site" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"><ExternalLink className="w-3 h-3" /></button>}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="px-3 pt-1.5 pb-1 text-xs font-semibold text-muted-foreground">{searchQuery ? `${filteredEntries.length} result${filteredEntries.length !== 1 ? 's' : ''}` : `Suggested for ${tabInfo?.domain ?? 'this site'}`}</p>
+            {filteredEntries.map(entry => <Row key={entry.id} entry={entry} />)}
           </div>
         ) : recentEntries.length > 0 ? (
           <div className="p-2">
-            <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-wider flex items-center gap-1"><Clock className="w-2.5 h-2.5" />Recently used</p>
-            <div className="space-y-0.5">
-              {recentEntries.map(entry => (
-                <div key={entry.id} className="group flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-secondary/60 transition-colors animate-in fade-in slide-in-from-bottom-1 duration-300">
-                  <button onClick={() => handleAutoFill(entry)} title="Fill on this page" className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
-                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${gradient(entry)} flex items-center justify-center flex-shrink-0 shadow-sm`}><span className="text-xs font-bold text-white">{letter(entry)}</span></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium truncate flex items-center gap-1.5">{entry.website}{!!entry.passkeys?.length && <span className="text-[9px] font-semibold px-1 rounded bg-emerald-500/15 text-emerald-300">Passkey</span>}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{entry.username || 'No username'}</p>
-                    </div>
-                  </button>
-                  <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <button onClick={() => copyToClipboard(entry.username, 'Username', entry.id)} title="Copy username" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Username' ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}</button>
-                    <button onClick={() => copyToClipboard(entry.password, 'Password', entry.id)} title="Copy password" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + 'Password' ? <Check className="w-3 h-3 text-green-400" /> : <Key className="w-3 h-3" />}</button>
-                    {entry.totp && <button onClick={() => copyTotp(entry)} title="Copy 2FA code" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">{copied === entry.id + '2FA code' ? <Check className="w-3 h-3 text-green-400" /> : <ShieldCheck className="w-3 h-3" />}</button>}
-                    {entry.url && <button onClick={() => window.open(entry.url, '_blank', 'noopener,noreferrer')} title="Open site" className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"><ExternalLink className="w-3 h-3" /></button>}
-                  </div>
-                </div>
-              ))}
-            </div>
             {tabInfo && (
-              <div className="mt-2 mx-1 bg-secondary/30 border border-border/40 rounded-lg px-3 py-2 flex items-center justify-between">
-                <div><p className="text-[11px] font-medium">No login for {tabInfo.domain}</p><p className="text-[10px] text-muted-foreground">Save credentials for faster access next time</p></div>
-                <button onClick={openFullApp} className="text-[10px] text-primary flex-shrink-0 ml-2 font-medium">Add →</button>
+              <div className="mx-1 mb-2 rounded-xl border border-border/50 bg-secondary/30 px-3 py-2.5 flex items-center justify-between gap-2">
+                <div className="min-w-0"><p className="text-sm font-medium truncate">Nothing saved for {tabInfo.domain}</p><p className="text-xs text-muted-foreground">Sign in once and SecureVoult offers to save it.</p></div>
+                <button onClick={() => openFullApp('new/login')} className="flex-shrink-0 h-8 px-3 rounded-lg bg-primary/15 text-primary text-xs font-semibold hover:bg-primary/25">Add</button>
               </div>
             )}
-            <button onClick={openFullApp} className="w-full mt-1.5 text-center text-[11px] text-muted-foreground hover:text-foreground py-1 transition-colors">Browse all entries ↗</button>
+            <p className="px-3 pt-1 pb-1 text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />Recently used</p>
+            {recentEntries.map(entry => <Row key={entry.id} entry={entry} />)}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-            {!searchQuery && tabInfo ? (
-              <>
-                <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-3"><Save className="w-5 h-5 text-primary" /></div>
-                <p className="text-xs font-semibold mb-1">No saved login for</p>
-                <p className="text-[11px] text-primary font-mono mb-3 truncate max-w-[180px]">{tabInfo.domain}</p>
-                <p className="text-[11px] text-muted-foreground mb-4 leading-relaxed">Save your credentials to autofill next time you visit.</p>
-                <button onClick={openFullApp} className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 rounded-lg font-medium transition-colors"><Plus className="w-3 h-3" />Save this login</button>
-                <button onClick={openFullApp} className="mt-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors">Or search all entries</button>
-              </>
-            ) : (
-              <>
-                <div className="w-10 h-10 rounded-xl bg-secondary/50 flex items-center justify-center mb-3"><Search className="w-4 h-4 text-muted-foreground/50" /></div>
-                <p className="text-xs font-medium">No results</p>
-                <p className="text-[11px] text-muted-foreground mt-1 mb-4">{searchQuery ? `Nothing matched "${searchQuery}"` : 'Your vault is empty'}</p>
-                <button onClick={openFullApp} className="flex items-center gap-1.5 text-xs text-primary hover:underline"><Plus className="w-3 h-3" />{searchQuery ? 'Add entry in app' : 'Open SecureVoult'}</button>
-              </>
-            )}
+          <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-secondary/60 flex items-center justify-center mb-3">{searchQuery ? <Search className="w-5 h-5 text-muted-foreground" /> : <Save className="w-5 h-5 text-primary" />}</div>
+            <p className="text-sm font-semibold">{searchQuery ? 'No results' : 'Your vault is empty'}</p>
+            <p className="text-xs text-muted-foreground mt-1 mb-4">{searchQuery ? `Nothing matched "${searchQuery}".` : 'Add your first password, or import from another manager in the app.'}</p>
+            <button onClick={() => setPanel('create')} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 flex items-center gap-1.5"><Plus className="w-4 h-4" />Create item</button>
           </div>
         )}
       </div>
-      <div className="flex-shrink-0 px-3 py-2.5 border-t border-border/50 flex items-center justify-between">
-        <button onClick={openFullApp} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Open full app ↗</button>
-        <button onClick={() => lockVault()} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"><Lock className="w-3 h-3" />Lock</button>
+
+      {/* Big, labelled actions: nobody has to guess what a tiny icon does. */}
+      <div className="flex-shrink-0 grid grid-cols-4 gap-1.5 p-2 border-t border-border/50 bg-card/60">
+        <button onClick={() => lockVault()} className="h-14 rounded-xl flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-colors">
+          <Lock className="w-5 h-5" /><span className="text-[11px] font-medium">Lock</span>
+        </button>
+        <button onClick={doSync} disabled={syncing} className="h-14 rounded-xl flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-colors">
+          <RefreshCw className={`w-5 h-5 ${syncing || syncStatus === 'syncing' ? 'animate-spin text-primary' : syncStatus === 'failed' ? 'text-red-400' : ''}`} /><span className="text-[11px] font-medium">{syncing ? 'Syncing' : syncStatus === 'failed' ? 'Retry sync' : 'Sync'}</span>
+        </button>
+        <button onClick={() => setPanel('create')} className="h-14 rounded-xl flex flex-col items-center justify-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+          <Plus className="w-5 h-5" /><span className="text-[11px] font-semibold">New item</span>
+        </button>
+        <button onClick={() => openFullApp('all')} className="h-14 rounded-xl flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-colors">
+          <Maximize2 className="w-5 h-5" /><span className="text-[11px] font-medium">Full screen</span>
+        </button>
       </div>
+      </>
+      )}
     </div>
   );
 }

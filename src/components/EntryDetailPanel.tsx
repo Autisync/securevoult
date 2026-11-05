@@ -15,8 +15,9 @@ import { formatDistanceToNow, format } from 'date-fns';
 import {
   X, Copy, Check, Eye, EyeOff, Edit, Trash2, ExternalLink, Star,
   Key, StickyNote, CreditCard, UserCircle, Wifi, Globe, Calendar,
-  RefreshCw, Tag, Shield, AlertTriangle, Landmark, Maximize2, Minimize2, Fingerprint
+  RefreshCw, Tag, Shield, AlertTriangle, Landmark, Maximize2, Minimize2, Fingerprint, IdCard, CalendarClock
 } from 'lucide-react';
+import { documentKindLabel, expiryOf, reminderDays, REMINDER_OPTIONS } from '@/lib/item-types';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -24,10 +25,11 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const TYPE_META: Record<VaultItemType, { icon: React.ElementType; label: string; color: string; bg: string }> = {
-  login:    { icon: Key,        label: 'Login',        color: 'text-primary',   bg: 'bg-primary/10' },
+  login:    { icon: Key,        label: 'Password',     color: 'text-primary',   bg: 'bg-primary/10' },
   note:     { icon: StickyNote, label: 'Secure note',  color: 'text-amber-300', bg: 'bg-amber-500/10' },
-  card:     { icon: CreditCard, label: 'Payment card', color: 'text-green-400',  bg: 'bg-green-500/10' },
-  identity: { icon: UserCircle, label: 'Identity',     color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  card:     { icon: CreditCard, label: 'Credit card',  color: 'text-green-400',  bg: 'bg-green-500/10' },
+  identity: { icon: UserCircle, label: 'Contact info', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  document: { icon: IdCard,     label: 'Document',     color: 'text-emerald-300', bg: 'bg-emerald-500/10' },
   wifi:     { icon: Wifi,       label: 'Wi-Fi',        color: 'text-cyan-400',   bg: 'bg-cyan-500/10' },
   bank:     { icon: Landmark,   label: 'Bank account', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
 };
@@ -82,8 +84,12 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
   // Older cards kept the name and number in the username/password slots.
   const card = type === 'card' ? (entry.card ?? { holder: entry.username || undefined, number: entry.password || undefined }) : undefined;
   const identity = type === 'identity' ? (entry.identity ?? { fullName: entry.username || undefined }) : undefined;
-  const plainUser = type === 'card' || type === 'identity' || type === 'bank' ? '' : entry.username;
-  const plainPassword = type === 'card' || type === 'bank' ? '' : entry.password;
+  const plainUser = type === 'card' || type === 'identity' || type === 'bank' || type === 'document' ? '' : entry.username;
+  const plainPassword = type === 'card' || type === 'bank' || type === 'document' ? '' : entry.password;
+  const doc = type === 'document' ? (entry.document ?? {}) : undefined;
+  const expires = expiryOf(entry);
+  const daysLeft = expires ? Math.ceil((expires.getTime() - Date.now()) / 86400000) : null;
+  const fmtDay = (s?: string) => { if (!s) return ''; const d = new Date(`${s}T12:00:00`); return Number.isNaN(d.getTime()) ? s : format(d, 'd MMM yyyy'); };
   const bank = type === 'bank' ? (entry.bank ?? {}) : undefined;
   const groupCard = (n?: string) => (n ?? '').replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
 
@@ -121,7 +127,7 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
   const handleDelete = async () => {
     try {
       await deleteEntry(entry.id);
-      toast({ title: 'Entry deleted' });
+      toast({ title: 'Moved to Trash', description: 'You can restore it from Trash for 30 days.' });
       onClose();
     } catch {
       toast({ title: 'Delete failed', variant: 'destructive' });
@@ -302,6 +308,29 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
             </>
           )}
 
+          {/* Expiry: documents and cards */}
+          {expires && daysLeft !== null && (daysLeft < 0 || daysLeft <= Math.max(reminderDays(entry), 30)) && (
+            <div className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm ${daysLeft < 0 ? 'bg-red-500/10 text-red-300' : 'bg-amber-500/10 text-amber-300'}`}>
+              <CalendarClock className="w-4 h-4 flex-shrink-0" />
+              {daysLeft < 0 ? `Expired ${format(expires, 'd MMM yyyy')}` : daysLeft === 0 ? 'Expires today' : `Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${format(expires, 'd MMM yyyy')})`}
+            </div>
+          )}
+
+          {/* Document */}
+          {doc && (
+            <>
+              <Field label="Type" value={documentKindLabel(doc.kind)} copyLabel="Type" />
+              {doc.fullName && <Field label="Full name" value={doc.fullName} copyLabel="Full name" />}
+              {doc.number && <Field label="Document number" value={doc.number} secret revealed={!!revealed.docnum} onReveal={() => toggle('docnum')} copyLabel="Document number" />}
+              {doc.issuedBy && <Field label="Issued by" value={doc.issuedBy} copyLabel="Issued by" />}
+              <div className="grid grid-cols-2 gap-2">
+                {doc.issuedOn && <Field label="Issued" value={fmtDay(doc.issuedOn)} copyLabel="Issue date" />}
+                {doc.expiresOn && <Field label="Expires" value={fmtDay(doc.expiresOn)} copyLabel="Expiry date" />}
+              </div>
+              {!!doc.remindDays && <p className="text-[11px] text-muted-foreground/80">Reminder: {REMINDER_OPTIONS.find((r) => r.days === doc.remindDays)?.label.toLowerCase() ?? `${doc.remindDays} days before`} it expires.</p>}
+            </>
+          )}
+
           {/* Identity */}
           {identity && (
             <>
@@ -441,7 +470,7 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
             <Edit className="w-3.5 h-3.5 mr-2" />Edit entry
           </Button>
           <Button variant="outline" className={`${expanded ? 'w-auto px-5' : 'w-full'} h-9 text-sm border-border/60 hover:border-destructive/50 hover:text-destructive`} onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="w-3.5 h-3.5 mr-2" />Delete entry
+            <Trash2 className="w-3.5 h-3.5 mr-2" />Move to Trash
           </Button>
         </div>
       </div>
@@ -449,14 +478,14 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete entry?</AlertDialogTitle>
+            <AlertDialogTitle>Move to Trash?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{entry.website}</strong> from your vault. This action cannot be undone.
+              <strong>{entry.website}</strong> goes to Trash on all your devices. You can restore it from Trash for 30 days; after that it's deleted for good.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Move to Trash</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

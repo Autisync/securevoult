@@ -8,11 +8,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
-import { PasswordEntry, VaultItemType, CardDetails, IdentityDetails, CustomField, BankDetails } from '@/types/vault';
+import { PasswordEntry, VaultItemType, CardDetails, IdentityDetails, CustomField, BankDetails, DocumentDetails } from '@/types/vault';
+import { ITEM_TYPES as TYPE_LIST, ITEM_TYPE, DOCUMENT_KINDS, REMINDER_OPTIONS } from '@/lib/item-types';
 import { parseTotp } from '@/lib/totp';
 import { CryptoService } from '@/lib/crypto';
 import { useVault } from '@/contexts/VaultContext';
-import { Eye, EyeOff, RefreshCw, Copy, Check, Loader2, Key, StickyNote, CreditCard, UserCircle, Wifi, AlertTriangle, Star, Plus, Trash2, ShieldCheck, Landmark } from 'lucide-react';
+import { Eye, EyeOff, RefreshCw, Copy, Check, Loader2, Key, StickyNote, CreditCard, UserCircle, Wifi, AlertTriangle, Star, Plus, Trash2, ShieldCheck, Landmark, IdCard, ImagePlus, Paperclip, X } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { getVaultPreference } from '@/hooks/useVaultPreferences';
 
@@ -20,6 +21,8 @@ interface EntryFormProps {
   entry?: PasswordEntry;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Type to start a new item with (from the Create menu). */
+  initialType?: VaultItemType;
 }
 
 const DEFAULT_CATEGORIES = ['Social Media', 'Email', 'Banking', 'Shopping', 'Work', 'Entertainment', 'Other'];
@@ -116,6 +119,21 @@ const TYPE_CONFIGS: Record<VaultItemType, TypeConfig> = {
     passwordRequired: false,
     usernameRequired: false,
   },
+  document: {
+    icon: IdCard,
+    label: 'Document',
+    websiteLabel: 'Name',
+    websitePlaceholder: 'My passport, Work ID…',
+    usernameLabel: '',
+    usernamePlaceholder: '',
+    passwordLabel: '',
+    showUrl: false,
+    showUsername: false,
+    showPassword: false,
+    canGenerate: false,
+    passwordRequired: false,
+    usernameRequired: false,
+  },
   wifi: {
     icon: Wifi,
     label: 'Wi-Fi',
@@ -133,16 +151,19 @@ const TYPE_CONFIGS: Record<VaultItemType, TypeConfig> = {
   },
 };
 
-const ITEM_TYPES: VaultItemType[] = ['login', 'note', 'card', 'bank', 'identity', 'wifi'];
+const ITEM_TYPES: VaultItemType[] = TYPE_LIST.map((t) => t.type);
 
-const emptyForm = () => ({
-  type: (getVaultPreference('defaultEntryType') ?? 'login') as VaultItemType,
+const emptyForm = (type?: VaultItemType) => ({
+  type: (type ?? getVaultPreference('defaultEntryType') ?? 'login') as VaultItemType,
   website: '', url: '', urls: '', username: '', password: '', totp: '', notes: '', category: 'Other', tags: '', isFavorite: false,
   card: {} as CardDetails,
   identity: {} as IdentityDetails,
   bank: {} as BankDetails,
+  document: { kind: 'passport', remindDays: 90 } as DocumentDetails,
   fields: [] as CustomField[],
 });
+
+const MAX_FILE = 25 * 1024 * 1024;
 
 const CARD_FIELDS: { key: keyof CardDetails; label: string; placeholder: string; secret?: boolean; half?: boolean; mono?: boolean }[] = [
   { key: 'holder', label: 'Name on card', placeholder: 'Full name' },
@@ -184,14 +205,16 @@ const clean = <T extends object>(o: T): T | undefined => {
   return entries.length ? (Object.fromEntries(entries.map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])) as T) : undefined;
 };
 
-export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
-  const [formData, setFormData] = useState(() => emptyForm());
+export function EntryForm({ entry, open, onOpenChange, initialType }: EntryFormProps) {
+  const [formData, setFormData] = useState(() => emptyForm(initialType));
+  /** Photos or files picked here, uploaded (encrypted) once the item is saved. */
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showDuplicateDetail, setShowDuplicateDetail] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const { addEntry, updateEntry, getCategories, vault } = useVault();
+  const { addEntry, updateEntry, getCategories, vault, addAttachment } = useVault();
   const { toast } = useToast();
 
   const isEditing = !!entry;
@@ -226,17 +249,19 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
           card: entry.card ?? (entry.type === 'card' ? { holder: entry.username || undefined, number: entry.password || undefined } : {}),
           identity: entry.identity ?? (entry.type === 'identity' ? { fullName: entry.username || undefined } : {}),
           bank: entry.bank ?? {},
+          document: entry.document ?? {},
           fields: entry.fields ?? [],
         });
       } else {
-        setFormData(emptyForm());
+        setFormData(emptyForm(initialType));
       }
+      setPendingFiles([]);
       setShowPassword(false);
       setCopied(false);
       setShowDuplicateDetail(false);
       setTouched({});
     }
-  }, [open, entry]);
+  }, [open, entry, initialType]);
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setFormData(prev => ({ ...prev, [key]: e.target.value }));
@@ -284,19 +309,29 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
         card: t === 'card' ? clean(formData.card) : undefined,
         identity: t === 'identity' ? clean(formData.identity) : undefined,
         bank: t === 'bank' ? clean(formData.bank) : undefined,
+        document: t === 'document' ? clean(formData.document) : undefined,
         fields: fields.length ? fields : undefined,
         notes: formData.notes || undefined,
         category: formData.category,
         tags: tags.length > 0 ? tags : undefined,
         isFavorite: formData.isFavorite,
       };
+      let id: string;
       if (isEditing) {
         await updateEntry(entry.id, payload);
-        toast({ title: 'Entry updated' });
+        id = entry.id;
       } else {
-        await addEntry(payload);
-        toast({ title: 'Entry added', description: 'Saved to your encrypted vault.' });
+        id = await addEntry(payload);
       }
+      let failed = 0;
+      for (const f of pendingFiles) {
+        try { await addAttachment(id, f); } catch { failed++; }
+      }
+      toast({
+        title: isEditing ? 'Changes saved' : `${ITEM_TYPE[t].label} saved`,
+        description: failed ? `${failed} file${failed > 1 ? 's' : ''} couldn't be uploaded. Try adding ${failed > 1 ? 'them' : 'it'} again from the item.` : 'Saved to your encrypted vault.',
+        ...(failed ? { variant: 'destructive' as const } : {}),
+      });
       onOpenChange(false);
     } catch (err) {
       toast({ title: 'Save failed', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' });
@@ -331,7 +366,7 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
       <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden border-border bg-card max-h-[92vh] flex flex-col">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <DialogTitle className="text-lg font-semibold">
-            {isEditing ? 'Edit entry' : 'Add new entry'}
+            {isEditing ? `Edit ${ITEM_TYPE[formData.type].label.toLowerCase()}` : `New ${ITEM_TYPE[formData.type].label.toLowerCase()}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -341,7 +376,7 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
             <Label className="text-sm font-medium">Item type</Label>
             <div className="flex gap-1.5 flex-wrap">
               {ITEM_TYPES.map(t => {
-                const { icon: Icon, label } = TYPE_CONFIGS[t];
+                const { icon: Icon, label } = ITEM_TYPE[t];
                 const active = formData.type === t;
                 return (
                   <button
@@ -541,6 +576,89 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
             </div>
           )}
 
+          {formData.type === 'document' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="ef-doc-kind" className="text-sm font-medium">Document type</Label>
+                <Select value={formData.document.kind ?? 'other'} onValueChange={(v) => setFormData(prev => ({ ...prev, document: { ...prev.document, kind: v as DocumentDetails['kind'] } }))}>
+                  <SelectTrigger id="ef-doc-kind" className="h-10 bg-secondary/50 border-border/60"><SelectValue /></SelectTrigger>
+                  <SelectContent>{DOCUMENT_KINDS.map(k => <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ef-doc-number" className="text-sm font-medium">Document number</Label>
+                <Input id="ef-doc-number" value={formData.document.number ?? ''} autoComplete="off" placeholder="As printed"
+                  onChange={e => setFormData(prev => ({ ...prev, document: { ...prev.document, number: e.target.value } }))}
+                  className="h-10 bg-secondary/50 border-border/60 focus:border-primary text-sm font-mono" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="ef-doc-name" className="text-sm font-medium">Full name</Label>
+                <Input id="ef-doc-name" value={formData.document.fullName ?? ''} autoComplete="off" placeholder="As on the document"
+                  onChange={e => setFormData(prev => ({ ...prev, document: { ...prev.document, fullName: e.target.value } }))}
+                  className="h-10 bg-secondary/50 border-border/60 focus:border-primary text-sm" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="ef-doc-by" className="text-sm font-medium">Issued by</Label>
+                <Input id="ef-doc-by" value={formData.document.issuedBy ?? ''} autoComplete="off" placeholder="Country or authority, e.g. United Kingdom, DVLA"
+                  onChange={e => setFormData(prev => ({ ...prev, document: { ...prev.document, issuedBy: e.target.value } }))}
+                  className="h-10 bg-secondary/50 border-border/60 focus:border-primary text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ef-doc-issued" className="text-sm font-medium">Issue date</Label>
+                <Input id="ef-doc-issued" type="date" value={formData.document.issuedOn ?? ''}
+                  onChange={e => setFormData(prev => ({ ...prev, document: { ...prev.document, issuedOn: e.target.value } }))}
+                  className="h-10 bg-secondary/50 border-border/60 focus:border-primary text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ef-doc-expires" className="text-sm font-medium">Expiry date</Label>
+                <Input id="ef-doc-expires" type="date" value={formData.document.expiresOn ?? ''}
+                  onChange={e => setFormData(prev => ({ ...prev, document: { ...prev.document, expiresOn: e.target.value } }))}
+                  className="h-10 bg-secondary/50 border-border/60 focus:border-primary text-sm" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="ef-doc-remind" className="text-sm font-medium">Remind me</Label>
+                <Select value={String(formData.document.remindDays ?? 0)} onValueChange={(v) => setFormData(prev => ({ ...prev, document: { ...prev.document, remindDays: Number(v) } }))}>
+                  <SelectTrigger id="ef-doc-remind" className="h-10 bg-secondary/50 border-border/60"><SelectValue /></SelectTrigger>
+                  <SelectContent>{REMINDER_OPTIONS.map(r => <SelectItem key={r.days} value={String(r.days)}>{r.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">The reminder shows in Notifications{formData.document.expiresOn ? '' : ' once you add the expiry date'}.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Photos and files: the main way to keep a document; optional on everything else */}
+          {(formData.type === 'document' || pendingFiles.length > 0 || formData.type === 'note' || formData.type === 'card' || formData.type === 'identity') && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">{formData.type === 'document' ? 'Photos of the document' : 'Files'} <span className="text-muted-foreground text-xs font-normal">(optional, encrypted, up to 25 MB each)</span></Label>
+              {pendingFiles.length > 0 && (
+                <div className="space-y-1.5">
+                  {pendingFiles.map((f, i) => (
+                    <div key={`${f.name}-${i}`} className="flex items-center gap-2 bg-secondary/40 rounded-lg px-3 py-2 text-sm">
+                      <Paperclip className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="flex-1 truncate">{f.name}</span>
+                      <span className="text-xs text-muted-foreground">{Math.max(1, Math.round(f.size / 1024))} KB</span>
+                      <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setPendingFiles(p => p.filter((_, j) => j !== i))} className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {isEditing && !!entry?.attachments?.length && (
+                <p className="text-xs text-muted-foreground">{entry.attachments.length} file{entry.attachments.length > 1 ? 's' : ''} already attached. Manage them from the item.</p>
+              )}
+              <label className="flex items-center justify-center gap-2 h-12 rounded-lg border border-dashed border-border hover:border-primary/60 hover:bg-primary/5 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <ImagePlus className="w-4 h-4" />{formData.type === 'document' ? 'Add front, back or a scan' : 'Add a file'}
+                <input type="file" multiple accept={formData.type === 'document' ? 'image/*,application/pdf' : undefined} className="sr-only"
+                  onChange={e => {
+                    const picked = Array.from(e.target.files ?? []);
+                    const tooBig = picked.filter(f => f.size > MAX_FILE);
+                    if (tooBig.length) toast({ title: `${tooBig[0].name} is larger than 25 MB`, variant: 'destructive' });
+                    setPendingFiles(p => [...p, ...picked.filter(f => f.size <= MAX_FILE)]);
+                    e.target.value = '';
+                  }} />
+              </label>
+            </div>
+          )}
+
           {formData.type === 'identity' && (
             <div className="grid grid-cols-2 gap-3">
               {IDENTITY_FIELDS.map(f => (
@@ -617,7 +735,7 @@ export function EntryForm({ entry, open, onOpenChange }: EntryFormProps) {
             <div className="flex items-center gap-2">
               <Button type="button" variant="ghost" size="sm" className="h-10" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button type="submit" className="h-10 bg-primary hover:bg-primary/90 font-semibold min-w-[120px]" disabled={isLoading}>
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isEditing ? 'Save changes' : 'Add entry'}
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : isEditing ? 'Save changes' : 'Save'}
               </Button>
             </div>
           </div>

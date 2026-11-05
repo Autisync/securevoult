@@ -136,6 +136,19 @@ console.log('merging devices');
   ok(edited.entries.some((x) => x.id === 'c'), 'edited after the deletion: kept');
   const old = mergeVaults(laptop, { ...phone, deleted: { z: '2025-01-01T00:00:00Z' } }, d('2026-03-10').getTime());
   ok(!old.deleted?.z, 'deletions older than 180 days are forgotten');
+
+  // Trash: binned on the phone, restorable, restore and purge travel between devices.
+  const binned = { ...phone, entries: phone.entries.filter((x) => x.id !== 'b'), deleted: { ...phone.deleted, b: '2026-03-06T00:00:00Z' }, trash: [{ entry: e('b', '2026-01-02'), trashedAt: '2026-03-06T00:00:00Z' }] };
+  const t1 = mergeVaults({ ...phone, trash: [] }, binned, d('2026-03-10').getTime());
+  ok(!t1.entries.some((x) => x.id === 'b') && t1.trash?.length === 1, 'binned item leaves the list and sits in Trash');
+  const restored = { ...binned, entries: [...binned.entries, e('b', '2026-03-08')], trash: [] };
+  const t2 = mergeVaults(restored, binned, d('2026-03-10').getTime());
+  ok(t2.entries.some((x) => x.id === 'b') && !t2.trash?.length, 'restored on one device: back everywhere, gone from Trash');
+  const purgedV = { ...binned, trash: [], purged: { b: '2026-03-07T00:00:00Z' } };
+  const t3 = mergeVaults(binned, purgedV, d('2026-03-10').getTime());
+  ok(!t3.trash?.length && !t3.entries.some((x) => x.id === 'b'), 'deleted for good on one device: gone everywhere');
+  const t4 = mergeVaults(binned, binned, d('2026-04-10').getTime());
+  ok(!t4.trash?.length, 'Trash empties itself after 30 days');
 }
 
 console.log('importing');

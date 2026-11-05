@@ -35,8 +35,16 @@ import {
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { readRoute, writeRoute } from '@/lib/route';
+import { CreateItemMenu } from '@/components/CreateItemMenu';
+import { TrashView } from '@/components/TrashView';
+import { BreachScanner } from '@/components/BreachScanner';
+import { EmailMasking } from '@/components/EmailMasking';
+import { NotificationBell } from '@/components/NotificationList';
+import { ITEM_TYPES, ITEM_TYPE } from '@/lib/item-types';
+import { ScanSearch, VenetianMask, HeartPulse, Fingerprint, IdCard } from 'lucide-react';
 
-type SidebarView = 'all' | 'favorites' | 'category' | 'recent' | 'used' | 'generator' | 'security' | 'settings';
+type SidebarView = 'all' | 'favorites' | 'category' | 'recent' | 'used' | 'generator' | 'security' | 'settings' | 'trash' | 'breach' | 'masking';
+type TypeTab = VaultItemType | 'all' | 'passkeys';
 
 const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'updated', label: 'Recently updated' },
@@ -46,18 +54,18 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
 ];
 
 const ITEM_TYPE_ICONS: Record<string, React.ElementType> = {
-  login: Key, note: StickyNote, card: CreditCard, identity: UserCircle, wifi: Wifi, bank: Landmark,
+  login: Key, note: StickyNote, card: CreditCard, identity: UserCircle, wifi: Wifi, bank: Landmark, document: IdCard,
 };
 
-const TYPE_FILTERS: { value: VaultItemType | 'all'; label: string; icon: React.ElementType }[] = [
-  { value: 'all',      label: 'All',      icon: Layers },
-  { value: 'login',    label: 'Logins',   icon: Key },
-  { value: 'note',     label: 'Notes',    icon: StickyNote },
-  { value: 'card',     label: 'Cards',    icon: CreditCard },
-  { value: 'bank',     label: 'Bank',     icon: Landmark },
-  { value: 'identity', label: 'Identity', icon: UserCircle },
-  { value: 'wifi',     label: 'Wi-Fi',    icon: Wifi },
+// Tabs across the top of the vault, NordPass-style: All items, Passwords, Passkeys, Secure notes…
+const TYPE_TABS: { value: TypeTab; label: string; icon: React.ElementType }[] = [
+  { value: 'all', label: 'All items', icon: Layers },
+  { value: 'login', label: 'Passwords', icon: Key },
+  { value: 'passkeys', label: 'Passkeys', icon: Fingerprint },
+  ...ITEM_TYPES.filter((t) => t.type !== 'login').map((t) => ({ value: t.type as TypeTab, label: t.plural, icon: t.icon })),
 ];
+const matchesTab = (e: PasswordEntry, tab: TypeTab) =>
+  tab === 'all' ? true : tab === 'passkeys' ? !!e.passkeys?.length : (e.type ?? 'login') === tab;
 
 interface VaultInterfaceProps {
   onViewPublicSite?: () => void;
@@ -68,7 +76,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
   // Reloading keeps you on the same view (#/vault/settings, #/vault/category/Work …).
   const [sidebarView, setSidebarView] = useState<SidebarView>(() => {
     const r = readRoute();
-    const views: SidebarView[] = ['all', 'favorites', 'category', 'recent', 'used', 'generator', 'security', 'settings'];
+    const views: SidebarView[] = ['all', 'favorites', 'category', 'recent', 'used', 'generator', 'security', 'settings', 'trash', 'breach', 'masking'];
     return r[0] === 'vault' && views.includes(r[1] as SidebarView) && (r[1] !== 'category' || !!r[2]) ? (r[1] as SidebarView) : 'all';
   });
   const [activeCategory, setActiveCategory] = useState<string>(() => {
@@ -78,17 +86,29 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
   const [navOpen, setNavOpen] = useState(false);
   const [entryFormOpen, setEntryFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<PasswordEntry | undefined>();
+  const [createType, setCreateType] = useState<VaultItemType | undefined>();
+  const startCreate = (t?: VaultItemType) => { setEditingEntry(undefined); setCreateType(t); setEntryFormOpen(true); };
+  // The extension's "New item" opens #/vault/new/<type>.
+  const [newFromLink] = useState(() => { const r = readRoute(); return r[0] === 'vault' && r[1] === 'new' && r[2] && r[2] in ITEM_TYPE ? (r[2] as VaultItemType) : null; });
+  useEffect(() => { if (newFromLink) startCreate(newFromLink); }, [newFromLink]);
   const [detailEntry, setDetailEntry] = useState<PasswordEntry | null>(null);
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [typeFilter, setTypeFilter] = useState<VaultItemType | 'all'>(() => {
+  const [typeFilter, setTypeFilter] = useState<TypeTab>(() => {
     if (typeof sessionStorage !== 'undefined') {
-      const saved = sessionStorage.getItem('sv_type_filter') as VaultItemType | 'all' | null;
+      const saved = sessionStorage.getItem('sv_type_filter') as TypeTab | null;
       if (saved) return saved;
     }
     return 'all';
   });
   const searchRef = useRef<HTMLInputElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  // Keep the chosen tab in view when the row scrolls sideways (narrow screens, detail panel open).
+  useEffect(() => {
+    const row = tabsRef.current;
+    const el = row?.querySelector<HTMLElement>(`[data-tab="${typeFilter}"]`);
+    if (row && el) row.scrollTo({ left: Math.max(0, el.offsetLeft - row.clientWidth / 2 + el.clientWidth / 2), behavior: 'smooth' });
+  }, [typeFilter]);
 
   useEffect(() => {
     // Settings writes its own tab into the address.
@@ -106,7 +126,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
   const {
     vault, isUnlocked, searchQuery, setSearchQuery, setSelectedCategory, setSortBy, sortBy,
     getFilteredEntries, getCategories, exportVault, lockVault,
-    updateEntry, deleteEntry, syncStatus, lastSynced,
+    updateEntry, deleteEntry, syncStatus, lastSynced, refresh,
   } = useVault();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
@@ -133,11 +153,10 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Ctrl+K / Cmd+K → focus search
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        if (['all', 'favorites', 'recent', 'used', 'category'].includes(sidebarView)) {
-          e.preventDefault();
-          searchRef.current?.focus();
-        }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'f')) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
         return;
       }
       // Escape → close detail panel, or clear search if focused, or deselect bulk
@@ -236,7 +255,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
     setTypeFilter('all');
     if (view === 'favorites') { setSelectedCategory('all'); setSearchQuery(''); }
     else if (view === 'category' && category) { setActiveCategory(category); setSelectedCategory(category); }
-    else if (['all', 'recent', 'used', 'generator', 'security', 'settings'].includes(view)) { setSelectedCategory('all'); setSearchQuery(''); }
+    else if (['all', 'recent', 'used', 'generator', 'security', 'settings', 'trash', 'breach', 'masking'].includes(view)) { setSelectedCategory('all'); setSearchQuery(''); }
   };
 
   const handleSignOut = async () => {
@@ -264,7 +283,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
     }
     // Apply type filter (not on 'used' view — results are already type-diverse)
     if (typeFilter !== 'all' && sidebarView !== 'used') {
-      entries = entries.filter(e => (e.type ?? 'login') === typeFilter);
+      entries = entries.filter(e => matchesTab(e, typeFilter));
     }
     return entries;
   })();
@@ -316,7 +335,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
       try { await deleteEntry(id); done++; } catch { /* continue */ }
     }
     clearSelection(); setBulkMode(false);
-    toast({ title: `${done} ${done === 1 ? 'entry' : 'entries'} deleted` });
+    toast({ title: `${done} ${done === 1 ? 'item' : 'items'} moved to Trash`, description: 'Restore them from Trash for 30 days.' });
   };
 
   const bulkFavorite = async (fav: boolean) => {
@@ -339,25 +358,31 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
     setDetailEntry(prev => prev?.id === entry.id ? null : entry);
   };
 
-  // Sync status badge
-  const SyncBadge = () => {
+  // Sync: shows the state and syncs now when clicked.
+  const [syncing, setSyncing] = useState(false);
+  const SyncButton = () => {
     const map = {
-      synced:  { icon: CheckCircle2, label: 'Synced',       cls: 'text-green-400' },
-      syncing: { icon: RefreshCw,    label: 'Syncing…',      cls: 'text-primary animate-spin' },
-      failed:  { icon: CloudOff,     label: 'Sync failed',   cls: 'text-red-400' },
-      offline: { icon: WifiOff,      label: 'Offline',       cls: 'text-yellow-400' },
+      synced:  { icon: CheckCircle2, label: 'Synced',      cls: 'text-green-400' },
+      syncing: { icon: RefreshCw,    label: 'Syncing…',    cls: 'text-primary' },
+      failed:  { icon: CloudOff,     label: 'Sync failed', cls: 'text-red-400' },
+      offline: { icon: WifiOff,      label: 'Offline',     cls: 'text-yellow-400' },
     };
-    const { icon: Icon, label, cls } = map[syncStatus];
+    const busy = syncing || syncStatus === 'syncing';
+    const { icon: Icon, label, cls } = busy ? map.syncing : map[syncStatus];
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className={`flex items-center gap-1 text-xs ${cls} cursor-default`}>
-              <Icon className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />{label}
-            </span>
+            <button
+              onClick={async () => { setSyncing(true); try { await refresh(); } finally { setSyncing(false); } }}
+              className={`h-10 inline-flex items-center gap-2 px-3 rounded-xl text-sm font-medium hover:bg-secondary/70 transition-colors ${cls}`}
+              aria-label={`${label}. Sync now`}
+            >
+              <Icon className={`w-[18px] h-[18px] ${busy ? 'animate-spin' : ''}`} /><span className="hidden lg:inline">{busy ? 'Syncing…' : syncStatus === 'synced' ? 'Sync' : label}</span>
+            </button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">
-            {lastSynced ? `Last synced ${lastSynced.toLocaleTimeString()}` : 'Not yet synced this session'}
+            {lastSynced ? `Last synced ${lastSynced.toLocaleTimeString()}. Click to sync now.` : 'Click to sync now'}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -409,11 +434,20 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
             <p className="px-3 mb-1.5 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">Tools</p>
             <div className="space-y-0.5">
               <NavItem id="generator" icon={Wand2} label="Password generator" />
-              <NavItem id="security" icon={ShieldAlert} label="Security center" />
+              <NavItem id="security" icon={HeartPulse} label="Password health" count={securityStats.weak + securityStats.reused || undefined} />
+              <NavItem id="breach" icon={ScanSearch} label="Data breach scanner" />
+              <NavItem id="masking" icon={VenetianMask} label="Email masking" />
             </div>
           </div>
+          <div className="pt-4 space-y-0.5">
+            <NavItem id="trash" icon={Trash2} label="Trash" count={vault?.trash?.length || undefined} />
+          </div>
         </nav>
-        <div className="p-3 border-t border-border/50 space-y-0.5">
+        <div className="p-3 border-t border-border/50 space-y-1">
+          <button onClick={() => lockVault()}
+            className="w-full h-11 flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-sm font-semibold transition-colors">
+            <Lock className="w-4 h-4" />Lock vault
+          </button>
           <NavItem id="settings" icon={Settings2} label="Settings" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -461,90 +495,97 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
+        {/* Header: one big search, then sync, notifications and lock, always in the same place */}
         <header className="flex-shrink-0 border-b border-border bg-background">
-          {/* Top bar */}
-          <div className="h-14 flex items-center gap-2 sm:gap-3 px-3 sm:px-5">
-            <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 flex-shrink-0" onClick={() => setNavOpen(true)} aria-label="Open menu">
+          <div className="h-16 flex items-center gap-2 sm:gap-3 px-3 sm:px-6">
+            <Button variant="ghost" size="icon" className="md:hidden h-10 w-10 flex-shrink-0" onClick={() => setNavOpen(true)} aria-label="Open menu">
               <Menu className="w-5 h-5" />
             </Button>
-            {showEntryList ? (
-              <>
-                <div className="relative flex-1 max-w-lg">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
-                  <Input
-                    ref={searchRef}
-                    placeholder="Search vault… (⌘K)"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9 bg-secondary/50 border-border/60 focus:border-primary text-sm"
-                  />
-                </div>
-                <Select value={sortBy} onValueChange={v => setSortBy(v as SortBy)}>
-                  <SelectTrigger className="hidden lg:flex w-48 h-9 whitespace-nowrap bg-secondary/50 border-border/60 text-sm flex-shrink-0">
-                    <ArrowUpDown className="w-3.5 h-3.5 mr-2 text-muted-foreground/60" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SORT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" className={`hidden sm:inline-flex h-9 flex-shrink-0 border-border/60 ${bulkMode ? 'bg-primary/10 text-primary border-primary/30' : 'text-muted-foreground'}`}
-                  onClick={() => { setBulkMode(!bulkMode); clearSelection(); }} title="Multi-select">
-                  <CheckSquare className="w-4 h-4" />
-                </Button>
-                <Button size="sm" className="h-9 bg-primary hover:bg-primary/90 flex-shrink-0" onClick={() => { setEditingEntry(undefined); setEntryFormOpen(true); }}>
-                  <Plus className="w-4 h-4 sm:mr-1.5" /><span className="hidden sm:inline">Add entry</span>
-                </Button>
-              </>
-            ) : (
-              <h2 className="text-sm font-semibold text-muted-foreground capitalize">{sidebarView}</h2>
-            )}
-            <div className="ml-auto flex-shrink-0">
-              <SyncBadge />
+            <div className="flex-1 flex justify-center min-w-0">
+              <div className="relative w-full max-w-2xl">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-muted-foreground pointer-events-none" />
+                <Input
+                  ref={searchRef}
+                  placeholder="Search all items"
+                  aria-label="Search all items"
+                  value={searchQuery}
+                  onChange={e => { if (!showEntryList) { setSidebarView('all'); setTypeFilter('all'); } setSearchQuery(e.target.value); }}
+                  className="pl-11 pr-3 sm:pr-24 h-11 rounded-xl bg-secondary/60 border-border/70 focus:border-primary text-[15px]"
+                />
+                {searchQuery ? (
+                  <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-secondary">Clear</button>
+                ) : (
+                  <kbd className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 items-center h-6 px-2 rounded-md border border-border bg-background text-[11px] font-medium text-muted-foreground">Ctrl + F</kbd>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <SyncButton />
+              <NotificationBell onOpenItem={(n) => {
+                if (n.kind === 'breach') { handleSidebarNav('breach'); return; }
+                const e = allEntries.find(x => x.id === n.link);
+                if (e) { handleSidebarNav('all'); setDetailEntry(e); }
+              }} />
+              <button onClick={() => lockVault()} className="hidden sm:inline-flex h-10 items-center gap-2 px-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-colors" title="Lock vault">
+                <Lock className="w-[18px] h-[18px]" /><span className="hidden lg:inline">Lock</span>
+              </button>
             </div>
           </div>
-          {/* Type filter chips — shown when browsing entries */}
-          {showEntryList && sidebarView !== 'used' && (
-            <div className="flex items-center gap-1.5 px-3 sm:px-5 pb-2.5 overflow-x-auto no-scrollbar">
-              {TYPE_FILTERS.map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  onClick={() => setTypeFilter(value)}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 transition-colors ${
-                    typeFilter === value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  }`}
-                >
-                  <Icon className="w-3 h-3" />{label}
-                  {value !== 'all' && (
-                    <span className={`text-xs ${typeFilter === value ? 'text-primary-foreground/70' : 'text-muted-foreground/60'}`}>
-                      {allEntries.filter(e => (e.type ?? 'login') === value).length}
-                    </span>
-                  )}
-                </button>
-              ))}
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-red-500/15 text-red-400 hover:bg-red-500/20 flex-shrink-0 transition-colors ml-auto"
-                >
-                  ✕ Clear search
-                </button>
-              )}
-            </div>
-          )}
         </header>
 
         {/* Content + detail panel */}
         <div className="flex-1 flex min-h-0">
-          <main className="flex-1 overflow-y-auto p-3 sm:p-5">
+          <main className="flex-1 overflow-y-auto p-3 sm:p-6">
+
+            {/* Title, Create item, and the item-type tabs */}
+            {showEntryList && (
+              <div className="mb-5 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight truncate">
+                    {sidebarView === 'all' ? 'Vault' : sidebarView === 'favorites' ? 'Favorites' : sidebarView === 'recent' ? 'Recently updated' : sidebarView === 'used' ? 'Recently used' : activeCategory}
+                  </h1>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Select value={sortBy} onValueChange={v => setSortBy(v as SortBy)}>
+                      <SelectTrigger className="hidden lg:flex w-48 h-11 rounded-xl whitespace-nowrap bg-secondary/50 border-border/60 text-sm" aria-label="Sort">
+                        <ArrowUpDown className="w-4 h-4 mr-2 text-muted-foreground" />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SORT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" className={`hidden sm:inline-flex h-11 rounded-xl border-border/60 ${bulkMode ? 'bg-primary/10 text-primary border-primary/30' : 'text-muted-foreground'}`}
+                      onClick={() => { setBulkMode(!bulkMode); clearSelection(); }}>
+                      <CheckSquare className="w-4 h-4 mr-2" />Select
+                    </Button>
+                    <CreateItemMenu onCreate={startCreate} />
+                  </div>
+                </div>
+                {sidebarView !== 'used' && (
+                  <div ref={tabsRef} className="relative flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1" role="tablist" aria-label="Item types">
+                    {TYPE_TABS.map(({ value, label, icon: Icon }) => {
+                      const n = value === 'all' ? totalEntries : allEntries.filter(e => matchesTab(e, value)).length;
+                      if (value !== 'all' && value !== 'login' && n === 0 && typeFilter !== value && !['passkeys', 'note', 'card', 'identity', 'document'].includes(value)) return null;
+                      const active = typeFilter === value;
+                      return (
+                        <button key={value} role="tab" aria-selected={active} onClick={() => setTypeFilter(value)}
+                          data-tab={value}
+                          className={`flex items-center gap-2 h-10 px-4 rounded-xl text-sm font-medium flex-shrink-0 transition-colors border ${
+                            active ? 'bg-secondary text-foreground border-border' : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/60'}`}>
+                          <Icon className="w-4 h-4" />{label}
+                          <span className={`text-xs ${active ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}>{n}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Dashboard overview */}
-            {sidebarView === 'all' && totalEntries > 0 && (
+            {sidebarView === 'all' && totalEntries > 0 && typeFilter === 'all' && !searchQuery && !bulkMode && (
               <div className="mb-6 space-y-4 animate-fade-up">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
                   {[
                     { label: 'Total',      value: totalEntries,          color: 'text-primary' },
                     { label: 'Favorites',  value: favoriteCount,          color: 'text-yellow-400' },
@@ -577,9 +618,11 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
                   <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider mb-2">Quick actions</p>
                   <div className="flex flex-wrap gap-2">
                     {[
-                      { label: 'New login',         icon: Key,        action: () => { setEditingEntry(undefined); setEntryFormOpen(true); } },
+                      { label: 'New password',      icon: Key,        action: () => startCreate('login') },
+                      { label: 'Add a document',    icon: IdCard,     action: () => startCreate('document') },
                       { label: 'Generate password', icon: Wand2,      action: () => handleSidebarNav('generator') },
-                      { label: 'Security scan',     icon: ShieldAlert, action: () => handleSidebarNav('security') },
+                      { label: 'Password health',   icon: HeartPulse, action: () => handleSidebarNav('security') },
+                      { label: 'Breach scanner',    icon: ScanSearch, action: () => handleSidebarNav('breach') },
                       { label: 'Import',            icon: Shield,     action: () => handleSidebarNav('settings') },
                       { label: 'Lock vault',        icon: Lock,       action: () => lockVault() },
                     ].map(({ label, icon: Icon, action }) => (
@@ -678,6 +721,9 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
             {sidebarView === 'generator' && <PasswordGenerator />}
             {sidebarView === 'security' && <SecurityCenter onEditEntry={entry => { handleEditEntry(entry); setSidebarView('all'); }} />}
             {sidebarView === 'settings' && <Settings onClose={() => setSidebarView('all')} />}
+            {sidebarView === 'trash' && <TrashView />}
+            {sidebarView === 'breach' && <BreachScanner />}
+            {sidebarView === 'masking' && <EmailMasking />}
 
             {/* Bulk action bar */}
             {bulkMode && showEntryList && (
@@ -712,14 +758,9 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
             {showEntryList && (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                    {sidebarView === 'all' && 'All items'}
-                    {sidebarView === 'favorites' && 'Favorites'}
-                    {sidebarView === 'recent' && 'Recently updated'}
-                    {sidebarView === 'category' && activeCategory}
-                    {displayedEntries.length > 0 && (
-                      <span className="normal-case font-normal text-muted-foreground/50">{displayedEntries.length}</span>
-                    )}
+                  <h2 className="text-sm font-medium text-muted-foreground">
+                    {displayedEntries.length} {displayedEntries.length === 1 ? 'item' : 'items'}
+                    {searchQuery && <> matching &ldquo;{searchQuery}&rdquo;</>}
                   </h2>
                   {searchQuery && (
                     <button onClick={() => setSearchQuery('')} className="text-xs text-muted-foreground hover:text-foreground">Clear search</button>
@@ -765,7 +806,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
                     <div className="space-y-1">
                       <h3 className="font-semibold">No results for &ldquo;{searchQuery}&rdquo;</h3>
                       <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                        {typeFilter !== 'all' ? `No ${typeFilter} entries match this search. Try removing the type filter.` : 'Try a different word, partial match, or browse by category.'}
+                        {typeFilter !== 'all' ? `No ${TYPE_TABS.find(t => t.value === typeFilter)?.label.toLowerCase()} match this search. Try All items.` : 'Try a different word, partial match, or browse by category.'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground/60 bg-secondary/30 rounded-xl px-4 py-2.5 space-x-1">
@@ -798,17 +839,19 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
                       sidebarView === 'favorites' ? 'No favorites yet' :
                       sidebarView === 'used' ? 'No recently used entries' :
                       sidebarView === 'category' ? `No entries in ${activeCategory}` :
-                      typeFilter !== 'all' ? `No ${typeFilter} entries` :
+                      typeFilter !== 'all' ? `No ${TYPE_TABS.find(t => t.value === typeFilter)?.label.toLowerCase()} yet` :
                       'Your vault is empty'
                     }
                     description={
                       sidebarView === 'favorites' ? 'Star entries to keep your most important logins front and center.' :
                       sidebarView === 'used' ? 'Copy a username or password from any entry to start tracking usage.' :
-                      typeFilter !== 'all' ? `You have no entries of this type yet. Add one from the "Add entry" button.` :
+                      typeFilter === 'passkeys' ? 'When a site offers a passkey, the SecureVoult extension can save it here.' :
+                      typeFilter === 'document' ? 'Keep your ID card, driving licence or passport here, with photos and an expiry reminder.' :
+                      typeFilter !== 'all' ? 'Add one with Create item.' :
                       'Add your first password to get started. All entries are encrypted with your master password.'
                     }
-                    ctaLabel={sidebarView === 'used' ? undefined : 'Add entry'}
-                    onCta={sidebarView === 'used' ? undefined : () => { setEditingEntry(undefined); setEntryFormOpen(true); }}
+                    ctaLabel={sidebarView === 'used' || typeFilter === 'passkeys' ? undefined : typeFilter !== 'all' ? `Add ${ITEM_TYPE[typeFilter as VaultItemType]?.label.toLowerCase() ?? 'item'}` : 'Add your first item'}
+                    onCta={sidebarView === 'used' || typeFilter === 'passkeys' ? undefined : () => startCreate(typeFilter === 'all' ? 'login' : typeFilter as VaultItemType)}
                     secondaryLabel={typeFilter !== 'all' ? 'Show all types' : undefined}
                     onSecondary={typeFilter !== 'all' ? () => setTypeFilter('all') : undefined}
                   />
@@ -830,6 +873,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
 
       <EntryForm
         entry={editingEntry}
+        initialType={createType}
         open={entryFormOpen}
         onOpenChange={open => { if (!open) { setEntryFormOpen(false); setEditingEntry(undefined); } }}
       />

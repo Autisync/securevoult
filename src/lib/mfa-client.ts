@@ -32,7 +32,7 @@ export class MfaRequiredError extends Error {
 
 function baseUrl(): string {
   const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime?.id;
-  return isExtension ? (process.env.NEXT_PUBLIC_APP_URL ?? '') : (typeof window !== 'undefined' ? window.location.origin : '');
+  return isExtension ? (process.env.NEXT_PUBLIC_APP_URL || 'https://vault.autisync.com') : (typeof window !== 'undefined' ? window.location.origin : '');
 }
 
 async function call<T>(action: string, body?: unknown): Promise<T> {

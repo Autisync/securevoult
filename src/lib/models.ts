@@ -525,3 +525,73 @@ const ssoConfigSchema = new mongoose.Schema(
 
 export const SSOConfig =
   mongoose.models.SSOConfig || mongoose.model('SSOConfig', ssoConfigSchema);
+/**
+ * An email address a user asked us to watch for data breaches. The account's
+ * own address is added automatically; others need a code sent to them first.
+ */
+const monitoredEmailSchema = new mongoose.Schema(
+  {
+    uid: { type: String, required: true, index: true },
+    email: { type: String, required: true, lowercase: true, trim: true },
+    /** The account's own address: where news of a breach is sent. */
+    notifyTo: { type: String, required: true },
+    verified: { type: Boolean, default: false },
+    /** sha256 of the 6-digit code, and when it stops working. */
+    codeHash: { type: String, default: null },
+    codeExpires: { type: Date, default: null },
+    codeTries: { type: Number, default: 0 },
+    lastChecked: { type: Date, default: null },
+    /** Which service answered last time: 'hibp' or 'xposedornot'. */
+    source: { type: String, default: null },
+    breaches: [
+      {
+        _id: false,
+        name: String,
+        title: String,
+        domain: String,
+        date: String,
+        count: Number,
+        dataClasses: [String],
+        description: String,
+        firstSeen: { type: Date, default: Date.now },
+        dismissed: { type: Boolean, default: false },
+      },
+    ],
+  },
+  { timestamps: true }
+);
+monitoredEmailSchema.index({ uid: 1, email: 1 }, { unique: true });
+
+/** A forwarding address (mask) that sends mail on to the account's email. */
+const emailMaskSchema = new mongoose.Schema(
+  {
+    uid: { type: String, required: true, index: true },
+    address: { type: String, required: true, unique: true, lowercase: true },
+    forwardTo: { type: String, required: true },
+    usedFor: { type: String, default: '' },
+    enabled: { type: Boolean, default: true },
+    mailcowId: { type: String, default: null },
+  },
+  { timestamps: true }
+);
+
+/** Something to tell the user in the bell menu (new breach, mask problem…). */
+const notificationSchema = new mongoose.Schema(
+  {
+    uid: { type: String, required: true, index: true },
+    kind: { type: String, required: true },
+    title: { type: String, required: true },
+    body: { type: String, default: '' },
+    /** Where "View" goes in the app, e.g. "breach". */
+    link: { type: String, default: '' },
+    read: { type: Boolean, default: false },
+    at: { type: Date, default: Date.now },
+  },
+  { timestamps: false }
+);
+notificationSchema.index({ at: 1 }, { expireAfterSeconds: 365 * 24 * 3600 });
+notificationSchema.index({ uid: 1, at: -1 });
+
+export const MonitoredEmail = mongoose.models.MonitoredEmail || mongoose.model('MonitoredEmail', monitoredEmailSchema);
+export const EmailMask = mongoose.models.EmailMask || mongoose.model('EmailMask', emailMaskSchema);
+export const AppNotification = mongoose.models.AppNotification || mongoose.model('AppNotification', notificationSchema);

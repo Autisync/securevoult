@@ -32,8 +32,11 @@ export function authReady(): Promise<void> {
 }
 
 export class AuthService {
+  // In the extension window.location.origin is chrome-extension://[id], which has no API: use the app's address.
   private static baseUrl =
-    typeof window !== 'undefined' ? window.location.origin : '';
+    typeof chrome !== 'undefined' && !!chrome.runtime?.id
+      ? (process.env.NEXT_PUBLIC_APP_URL || 'https://vault.autisync.com')
+      : (typeof window !== 'undefined' ? window.location.origin : '');
 
   private static convertFirebaseUser(firebaseUser: FirebaseUser): User {
     return {

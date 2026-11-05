@@ -95,9 +95,14 @@ interface VaultContextType extends VaultState {
   unlockVault: (masterPassword: string) => Promise<void>;
   createVault: (masterPassword: string) => Promise<void>;
   lockVault: () => void;
-  addEntry: (entry: NewEntry) => Promise<void>;
+  /** Resolves to the new item's id. */
+  addEntry: (entry: NewEntry) => Promise<string>;
   updateEntry: (entryId: string, updates: Partial<Omit<PasswordEntry, 'id' | 'createdAt'>>) => Promise<void>;
+  /** Moves the item to Trash (restorable for 30 days). */
   deleteEntry: (entryId: string) => Promise<void>;
+  restoreEntry: (entryId: string) => Promise<void>;
+  /** Deletes items in Trash for good, with their files. */
+  purgeEntries: (entryIds: string[]) => Promise<void>;
   setSearchQuery: (query: string) => void;
   setSelectedCategory: (category: string) => void;
   setSortBy: (sortBy: SortBy) => void;
@@ -364,14 +369,30 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
     await flush();
   };
 
-  const addEntry = (entry: NewEntry) => commit((v) => VaultService.addEntry(v, entry));
+  const addEntry = async (entry: NewEntry) => {
+    const id = crypto.randomUUID();
+    await commit((v) => VaultService.addEntry(v, entry, id));
+    return id;
+  };
   const updateEntry = (entryId: string, updates: Partial<Omit<PasswordEntry, 'id' | 'createdAt'>>) =>
     commit((v) => VaultService.updateEntry(v, entryId, updates));
-  const deleteEntry = async (entryId: string) => {
-    const files = vaultRef.current?.entries.find((e) => e.id === entryId)?.attachments ?? [];
-    await commit((v) => VaultService.deleteEntry(v, entryId));
+  // Files stay until the item leaves Trash for good.
+  const deleteEntry = (entryId: string) => commit((v) => VaultService.deleteEntry(v, entryId));
+  const restoreEntry = (entryId: string) => commit((v) => VaultService.restoreEntry(v, entryId));
+  const purgeEntries = async (entryIds: string[]) => {
+    const ids = new Set(entryIds);
+    const files = (vaultRef.current?.trash ?? []).filter((t) => ids.has(t.entry.id)).flatMap((t) => t.entry.attachments ?? []);
+    await commit((v) => VaultService.purgeEntries(v, entryIds));
     for (const f of files) void databaseAPI.deleteFile(f.id);
   };
+
+  // Items in Trash for 29+ days are deleted for good (with their files) before a sync would drop them.
+  useEffect(() => {
+    if (!state.isUnlocked) return;
+    const old = (vaultRef.current?.trash ?? []).filter((t) => Date.now() - new Date(t.trashedAt).getTime() > 29 * 24 * 3600 * 1000);
+    if (old.length) void purgeEntries(old.map((t) => t.entry.id)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isUnlocked]);
 
   const MAX_FILE = 25 * 1024 * 1024;
   const addAttachment = async (entryId: string, file: File): Promise<Attachment> => {
@@ -514,7 +535,7 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
 
   const contextValue: VaultContextType = {
     ...state,
-    unlockVault, createVault, lockVault, addEntry, updateEntry, deleteEntry,
+    unlockVault, createVault, lockVault, addEntry, updateEntry, deleteEntry, restoreEntry, purgeEntries,
     setSearchQuery: (q) => dispatch({ type: 'SET_SEARCH_QUERY', payload: q }),
     setSelectedCategory: (c) => dispatch({ type: 'SET_SELECTED_CATEGORY', payload: c }),
     setSortBy: (s) => dispatch({ type: 'SET_SORT_BY', payload: s }),

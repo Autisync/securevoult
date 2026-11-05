@@ -1,4 +1,21 @@
-export type VaultItemType = 'login' | 'note' | 'card' | 'identity' | 'wifi' | 'bank';
+export type VaultItemType = 'login' | 'note' | 'card' | 'identity' | 'wifi' | 'bank' | 'document';
+
+export type DocumentKind = 'id_card' | 'driving_licence' | 'passport' | 'residence_permit' | 'other';
+
+/** ID card, driving licence, passport…: the photos are kept as attachments. */
+export interface DocumentDetails {
+  kind?: DocumentKind;
+  fullName?: string;
+  number?: string;
+  /** Issuing country or authority. */
+  issuedBy?: string;
+  /** YYYY-MM-DD */
+  issuedOn?: string;
+  /** YYYY-MM-DD */
+  expiresOn?: string;
+  /** Remind this many days before it expires (0 or missing = no reminder). */
+  remindDays?: number;
+}
 
 export interface CustomField {
   label: string;
@@ -94,6 +111,7 @@ export interface PasswordEntry {
   identity?: IdentityDetails;
   bank?: BankDetails;
   wifi?: WifiDetails;
+  document?: DocumentDetails;
   fields?: CustomField[];
   attachments?: Attachment[];
   passkeys?: PasskeyCredential[];
@@ -114,6 +132,15 @@ export interface VaultData {
   updatedAt: Date;
   /** Deleted item id → when it was deleted, so a sync doesn't bring it back. */
   deleted?: Record<string, string>;
+  /** Deleted items, kept 30 days so they can be restored. */
+  trash?: TrashedEntry[];
+  /** Trash item id → when it was deleted for good, so a sync doesn't bring it back. */
+  purged?: Record<string, string>;
+}
+
+export interface TrashedEntry {
+  entry: PasswordEntry;
+  trashedAt: string;
 }
 
 export interface EncryptedVault {

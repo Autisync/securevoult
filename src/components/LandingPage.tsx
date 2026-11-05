@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Logo, LogoMark } from '@/components/Logo';
-import { PricingTable } from '@/components/PricingTable';
+import { PublicPricing } from '@/components/PublicPricing';
+import { LEGAL } from '@/lib/legal';
 import {
   ArrowRight, Check, ChevronDown, Fingerprint, Play, ShieldCheck, KeyRound, CreditCard, Landmark,
   StickyNote, Paperclip, UserCircle, Wifi, Smartphone, Globe, Lock, Server, Laptop, X, Menu,
@@ -508,11 +509,14 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
       {/* Pricing */}
       <section id="pricing" className="scroll-mt-20 border-t border-border/60 bg-card/40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-24">
-          <Reveal className="max-w-2xl mb-10">
-            <h2 className="font-display text-4xl sm:text-5xl tracking-[-0.02em]">Start free. Upgrade when it earns it.</h2>
-            <p className="mt-4 text-muted-foreground text-lg">Prices in pounds. Cancel any time and keep your export.</p>
+          <Reveal className="max-w-3xl mb-14">
+            <h2 className="font-display text-4xl sm:text-6xl tracking-[-0.02em] text-balance">How much does SecureVoult cost?</h2>
+            <p className="mt-4 text-muted-foreground text-lg">Start free. Pay when your team needs more.</p>
           </Reveal>
-          <PricingTable publicView onUpgrade={() => onGetStarted()} />
+          <PublicPricing onChoose={(plan) => {
+            if (plan === 'enterprise') { window.location.href = `mailto:${LEGAL.email}?subject=${encodeURIComponent('SecureVoult Enterprise quote')}`; return; }
+            onGetStarted();
+          }} />
         </div>
       </section>
 

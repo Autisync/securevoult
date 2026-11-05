@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { PasswordEntry, VaultItemType } from '@/types/vault';
+import { documentKindLabel } from '@/lib/item-types';
 import { useVault } from '@/contexts/VaultContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useClipboard } from '@/hooks/useClipboard';
-import { Copy, Edit, Trash2, ExternalLink, Eye, EyeOff, Check, Star, Key, StickyNote, CreditCard, UserCircle, Wifi, Clock, ShieldCheck, Landmark } from 'lucide-react';
+import { Copy, Edit, Trash2, ExternalLink, Eye, EyeOff, Check, Star, Key, StickyNote, CreditCard, UserCircle, Wifi, Clock, ShieldCheck, Landmark, IdCard } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { parseTotp, totpNow } from '@/lib/totp';
 
@@ -29,6 +30,7 @@ const TYPE_ICONS: Record<VaultItemType, React.ElementType> = {
   identity: UserCircle,
   wifi: Wifi,
   bank: Landmark,
+  document: IdCard,
 };
 
 interface EntryCardProps {
@@ -68,7 +70,7 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
   const handleDelete = async () => {
     try {
       await deleteEntry(entry.id);
-      toast({ title: 'Entry deleted' });
+      toast({ title: 'Moved to Trash', description: 'You can restore it from Trash for 30 days.' });
     } catch {
       toast({ title: 'Delete failed', variant: 'destructive' });
     }
@@ -143,7 +145,13 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
             {!!entry.passkeys?.length && <span className="text-[10px] font-semibold px-1 rounded bg-emerald-500/15 text-emerald-300 flex-shrink-0" title="Has a passkey">Passkey</span>}
             <Badge variant="outline" className="text-xs h-4 px-1.5 flex-shrink-0 hidden sm:flex">{entry.category}</Badge>
           </div>
-          {entry.username && entryType !== 'note' && entryType !== 'wifi' && (
+          {entryType === 'document' && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">{documentKindLabel(entry.document?.kind)}{entry.document?.expiresOn ? ` · expires ${new Date(`${entry.document.expiresOn}T12:00:00`).toLocaleDateString()}` : ''}</p>
+          )}
+          {entryType === 'card' && entry.card?.number && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">•••• {entry.card.number.replace(/\s/g, '').slice(-4)}{entry.card.expiry ? ` · ${entry.card.expiry}` : ''}</p>
+          )}
+          {entry.username && entryType !== 'note' && entryType !== 'wifi' && entryType !== 'document' && (
             <p className="text-xs text-muted-foreground truncate mt-0.5">{entry.username}</p>
           )}
           {!compact && entry.tags && entry.tags.length > 0 && (
@@ -233,7 +241,7 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
             variant="ghost" size="sm"
             className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
             onClick={() => setDeleteDialogOpen(true)}
-            title="Delete"
+            title="Move to Trash"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
@@ -243,14 +251,14 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete entry?</AlertDialogTitle>
+            <AlertDialogTitle>Move to Trash?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{entry.website}</strong> from your vault. This action cannot be undone.
+              <strong>{entry.website}</strong> goes to Trash on all your devices. You can restore it for 30 days.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Move to Trash</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

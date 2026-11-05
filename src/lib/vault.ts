@@ -379,11 +379,12 @@ export class VaultService {
   private static readonly VERSION = '2.0.0';
 
   static createEmptyVault(): VaultData {
-    return { entries: [], version: this.VERSION, createdAt: new Date(), updatedAt: new Date(), deleted: {} };
+    return { entries: [], version: this.VERSION, createdAt: new Date(), updatedAt: new Date(), deleted: {}, trash: [], purged: {} };
   }
 
-  static addEntry(vault: VaultData, entry: NewEntry): VaultData {
-    return this.addEntries(vault, [entry]);
+  static addEntry(vault: VaultData, entry: NewEntry, id: string = crypto.randomUUID()): VaultData {
+    const now = new Date();
+    return { ...vault, entries: [...vault.entries, { ...entry, id, createdAt: now, updatedAt: now } as PasswordEntry], updatedAt: now };
   }
 
   static addEntries(vault: VaultData, list: NewEntry[]): VaultData {
@@ -405,21 +406,51 @@ export class VaultService {
     return { ...vault, entries, updatedAt: now };
   }
 
+  /** Moves an item to Trash (restorable for 30 days). */
   static deleteEntry(vault: VaultData, entryId: string): VaultData {
     const now = new Date();
+    const entry = vault.entries.find((e) => e.id === entryId);
     return {
       ...vault,
-      entries: vault.entries.filter((entry) => entry.id !== entryId),
+      entries: vault.entries.filter((e) => e.id !== entryId),
       deleted: { ...(vault.deleted ?? {}), [entryId]: now.toISOString() },
+      trash: entry
+        ? [...(vault.trash ?? []).filter((t) => t.entry.id !== entryId), { entry, trashedAt: now.toISOString() }]
+        : vault.trash,
       updatedAt: now,
     };
+  }
+
+  /** Brings an item back from Trash. Its edit time moves on, so other devices keep it too. */
+  static restoreEntry(vault: VaultData, entryId: string): VaultData {
+    const t = (vault.trash ?? []).find((x) => x.entry.id === entryId);
+    if (!t) return vault;
+    const now = new Date();
+    const deleted = { ...(vault.deleted ?? {}) };
+    delete deleted[entryId];
+    return {
+      ...vault,
+      entries: [...vault.entries.filter((e) => e.id !== entryId), { ...t.entry, updatedAt: now }],
+      trash: (vault.trash ?? []).filter((x) => x.entry.id !== entryId),
+      deleted,
+      updatedAt: now,
+    };
+  }
+
+  /** Deletes items in Trash for good. */
+  static purgeEntries(vault: VaultData, ids: string[]): VaultData {
+    const now = new Date().toISOString();
+    const gone = new Set(ids);
+    const purged = { ...(vault.purged ?? {}) };
+    for (const id of ids) purged[id] = now;
+    return { ...vault, trash: (vault.trash ?? []).filter((t) => !gone.has(t.entry.id)), purged, updatedAt: new Date() };
   }
 
   static searchEntries(vault: VaultData, query: string): PasswordEntry[] {
     const q = query.trim().toLowerCase();
     if (!q) return vault.entries;
     return vault.entries.filter((e) =>
-      [e.website, e.username, e.category, e.notes, e.url, ...(e.urls ?? []), e.card?.holder, e.identity?.fullName, e.identity?.email, e.bank?.bankName, e.bank?.accountName, ...(e.tags ?? [])]
+      [e.website, e.username, e.category, e.notes, e.url, ...(e.urls ?? []), e.card?.holder, e.identity?.fullName, e.identity?.email, e.bank?.bankName, e.bank?.accountName, e.document?.fullName, e.document?.issuedBy, ...(e.tags ?? [])]
         .some((v) => v?.toLowerCase().includes(q)),
     );
   }

@@ -81,6 +81,12 @@ async function runAll() {
     await checkBackups();
     await checkDisk();
     await checkDependencies();
+    // Data breach scanner: watched addresses, once a day.
+    if (await due('breach-monitor', 22)) {
+      const { checkAllMonitored } = await import('@/lib/breach-monitor');
+      const r = await checkAllMonitored();
+      await setState('breach-monitor', { ...r, at: new Date().toISOString() });
+    }
   } catch (e) {
     console.error('[jobs] check failed:', e instanceof Error ? e.message : e);
   }
