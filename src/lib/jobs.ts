@@ -96,5 +96,10 @@ let started = false;
 export function startJobs() {
   if (started || process.env.SECUREVOULT_JOBS === 'off') return;
   started = true;
+  // A new build may already fix what the last package scan found: scan again
+  // soon after start, so System health never shows a finding that is gone.
+  setTimeout(() => {
+    void connectDB().then(() => checkDependencies()).catch((e) => console.error('[jobs] package scan failed:', e instanceof Error ? e.message : e));
+  }, 30e3).unref?.();
   setTimeout(() => { void runAll(); setInterval(() => void runAll(), EVERY_MS).unref?.(); }, 3 * 60e3).unref?.();
 }

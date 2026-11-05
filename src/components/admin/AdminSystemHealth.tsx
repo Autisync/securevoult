@@ -250,7 +250,7 @@ export function AdminSystemHealth() {
           <li>The database is backed up every night on the server; the last 14 are kept. Vaults and files in them stay encrypted.</li>
           <li>Backups live on the same server. For off-site protection, copy the backups folder somewhere else from time to time.</li>
           <li>Rate limits are kept in memory, which is right for one server. Add Upstash Redis only if you run several app servers.</li>
-          <li>To apply security updates: run <span className="font-mono">npm update</span> (or the version shown) on your PC, then commit and deploy. GitHub also opens update pull requests weekly (Dependabot).</li>
+          <li>To apply security updates: update the package on your PC (<span className="font-mono">npm update</span>, or the version shown), commit and push, then press Deploy SecureVoult in the CRM (System status → Updates) or run scripts\deploy.ps1. The check here runs again 30 seconds after every start. GitHub also opens update pull requests weekly (Dependabot).</li>
           <li>No secrets or environment values are shown here, only whether things are set up.</li>
         </ul>
       </div>
