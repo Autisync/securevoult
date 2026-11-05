@@ -7,6 +7,10 @@ export interface User {
   emailVerified: boolean;
   createdAt: Date;
   role?: 'user' | 'admin';
+  /** Plan in effect (admins count as enterprise). From the server at sign-in. */
+  plan?: 'free' | 'pro' | 'company' | 'enterprise';
+  billingCycle?: 'monthly' | 'yearly';
+  planExpiresAt?: string | null;
 }
 
 export interface AuthState {

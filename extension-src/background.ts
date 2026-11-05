@@ -71,8 +71,16 @@ function siteOf(url: string | undefined): string {
   } catch { return ''; }
 }
 
-const forSite = (entries: PasswordEntry[], site: string) =>
-  site ? VaultService.findEntriesForDomain({ entries, version: '', createdAt: new Date(), updatedAt: new Date() }, site) : [];
+const hostOf = (u?: string) => { try { return new URL(/^[a-z]+:\/\//i.test(u ?? '') ? u! : `https://${u}`).hostname.replace(/^www\./, ''); } catch { return ''; } };
+
+/** This site's logins; ones saved for this exact address (e.g. crm.autisync.com) first. */
+const forSite = (entries: PasswordEntry[], site: string, pageUrl?: string) => {
+  if (!site) return [];
+  const list = VaultService.findEntriesForDomain({ entries, version: '', createdAt: new Date(), updatedAt: new Date() }, site);
+  const host = hostOf(pageUrl);
+  const exact = (e: PasswordEntry) => [e.url, ...(e.urls ?? [])].some((u) => u && hostOf(u) === host);
+  return [...list.filter(exact), ...list.filter((e) => !exact(e))];
+};
 
 const summary = (e: PasswordEntry) => ({ id: e.id, title: e.website, username: e.username, hasTotp: !!parseTotp(e.totp) });
 
@@ -142,7 +150,7 @@ async function handle(msg: Msg, sender: chrome.runtime.MessageSender): Promise<u
       if (!site) return { items: [] };
       const v = await unlockedVault();
       if (!v) return { locked: true, items: [] };
-      const items = forSite(v.entries, site);
+      const items = forSite(v.entries, site, sender.url);
       return { items: (msg.kind === 'otp' ? items.filter((e) => parseTotp(e.totp)) : items).map(summary) };
     }
 

@@ -57,10 +57,14 @@ export function enableRememberIfChosen(days: number): void {
   if (days > 0) allowKeyExport();
 }
 
-/** A VaultSession (see VaultContext) that survives reloads for `days` days. */
-export function deviceSession(days: number, uid: () => string | null) {
+/**
+ * A VaultSession (see VaultContext) that survives reloads. `getDays` is read
+ * each time, so turning the option on takes effect at the very next unlock.
+ */
+export function deviceSession(getDays: () => number, uid: () => string | null) {
   return {
     async load(): Promise<{ key: string; header: KeyHeader } | null> {
+      const days = getDays();
       if (days <= 0 || typeof indexedDB === 'undefined') return null;
       const s = await get<Stored>('session').catch(() => undefined);
       if (!s) return null;
@@ -69,6 +73,7 @@ export function deviceSession(days: number, uid: () => string | null) {
       return JSON.parse(new TextDecoder().decode(plain));
     },
     async save(v: { key: string; header: KeyHeader }): Promise<void> {
+      const days = getDays();
       if (days <= 0 || typeof indexedDB === 'undefined') return;
       const prev = await get<Stored>('session').catch(() => undefined);
       const iv = crypto.getRandomValues(new Uint8Array(12));

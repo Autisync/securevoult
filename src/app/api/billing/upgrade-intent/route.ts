@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     checkoutUrl: null,
     message: isEnterprise
       ? 'Thank you for your interest in Enterprise. Our team will be in touch shortly.'
-      : 'Your upgrade request has been noted. Stripe integration is coming soon — we\'ll notify you when payments are live.',
+      : 'Online payments aren\'t switched on yet. Your request is noted and the Autisync team will contact you.',
   });
 }
 

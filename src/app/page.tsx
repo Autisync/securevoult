@@ -133,9 +133,8 @@ export default function Page() {
   // "Keep me unlocked on this device" (Settings → Security). Read once per page load.
   const session = useMemo(() => {
     if (typeof window === 'undefined') return undefined;
-    const days = getVaultPreference('rememberDays');
-    enableRememberIfChosen(days);
-    return days > 0 ? deviceSession(days, () => AuthService.currentUid()) : undefined;
+    enableRememberIfChosen(getVaultPreference('rememberDays'));
+    return deviceSession(() => getVaultPreference('rememberDays'), () => AuthService.currentUid());
   }, []);
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>

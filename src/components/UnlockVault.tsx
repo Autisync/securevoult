@@ -9,6 +9,9 @@ import { Eye, EyeOff, Loader2, AlertCircle, ArrowLeft, KeyRound } from 'lucide-r
 import { Logo } from '@/components/Logo';
 import { SecondFactorStep } from '@/components/SecondFactorStep';
 import { normaliseRecoveryKey } from '@/lib/vault-crypto';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useVaultPreferences } from '@/hooks/useVaultPreferences';
+import { enableRememberIfChosen, forgetDevice } from '@/lib/device-session';
 
 interface UnlockVaultProps {
   onUnlock: () => void;
@@ -21,10 +24,23 @@ export function UnlockVault({ onUnlock, isAdmin, onAdminPanel }: UnlockVaultProp
   const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<'unlock' | 'recover'>('unlock');
   const { unlockVault, isLoading, error, secondFactor } = useVault();
+  const { prefs, setPref } = useVaultPreferences();
+  const [keepUnlocked, setKeepUnlocked] = useState(prefs.rememberDays > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) return;
+    // "Keep me unlocked on this device": takes effect with this unlock.
+    if (keepUnlocked && prefs.rememberDays <= 0) {
+      setPref('rememberDays', 30);
+      setPref('autoLockMinutes', 0);
+      enableRememberIfChosen(30);
+    } else if (keepUnlocked) {
+      enableRememberIfChosen(prefs.rememberDays);
+    } else if (!keepUnlocked && prefs.rememberDays > 0) {
+      setPref('rememberDays', 0);
+      void forgetDevice();
+    }
     await unlockVault(password);
     onUnlock();
   };
@@ -77,6 +93,13 @@ export function UnlockVault({ onUnlock, isAdmin, onAdminPanel }: UnlockVaultProp
                   <AlertCircle className="w-4 h-4 flex-shrink-0" /><span>{error}</span>
                 </div>
               )}
+              <label className="flex items-start gap-2.5 text-sm cursor-pointer select-none">
+                <Checkbox checked={keepUnlocked} onCheckedChange={(v) => setKeepUnlocked(v === true)} className="mt-0.5" />
+                <span>
+                  Keep me unlocked on this device
+                  <span className="block text-xs text-muted-foreground">For {prefs.rememberDays > 0 ? prefs.rememberDays : 30} days. Only on your own computer.</span>
+                </span>
+              </label>
               <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 font-semibold" disabled={!password.trim() || isLoading}>
                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Unlock vault'}
               </Button>

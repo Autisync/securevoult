@@ -9,6 +9,7 @@ import { PLAN_META, PLAN_LIMITS, PLAN_PRICING, PlanId } from '@/lib/plans';
 import { getEntryLimit } from '@/lib/feature-gates';
 import { CreditCard, CheckCircle2, ArrowUpRight, Calendar, Zap } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { AuthService } from '@/lib/auth';
 
 interface BillingSettingsProps {
   currentPlan: PlanId;
@@ -32,12 +33,34 @@ export function BillingSettings({
   const limits = PLAN_LIMITS[currentPlan];
   const entryLimit = getEntryLimit(currentPlan);
 
-  const handleUpgrade = (plan: PlanId) => {
-    // Placeholder — Stripe integration point
-    toast({
-      title: `Upgrade to ${PLAN_META[plan].name}`,
-      description: 'Payment processing coming soon. Thank you for your interest!',
-    });
+  const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
+
+  /** Starts Stripe Checkout when payments are set up; otherwise records the request. */
+  const handleUpgrade = async (plan: PlanId) => {
+    if (busyPlan) return;
+    setBusyPlan(plan);
+    try {
+      const token = await AuthService.getIdToken();
+      const res = await fetch('/api/billing/upgrade-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ targetPlan: plan, billingCycle, feature: 'billing_settings' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      toast({
+        title: res.ok ? `${PLAN_META[plan].name}: request received` : 'Could not start the upgrade',
+        description: data.message ?? 'Try again in a moment.',
+        variant: res.ok ? undefined : 'destructive',
+      });
+    } catch {
+      toast({ title: 'Could not start the upgrade', description: 'Check your connection and try again.', variant: 'destructive' });
+    } finally {
+      setBusyPlan(null);
+    }
   };
 
   const isPaid = currentPlan !== 'free';

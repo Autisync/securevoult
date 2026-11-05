@@ -99,10 +99,19 @@ export async function POST(request: NextRequest) {
     // non-fatal
   }
 
+  let plan = 'free';
+  try {
+    const { resolveEntitlements } = await import('@/lib/entitlements');
+    plan = (await resolveEntitlements(uid)).effectivePlan;
+  } catch { /* free until it can be resolved */ }
+
   return NextResponse.json({
     success: true,
     sessionId,
     user: {
+      plan,
+      billingCycle: (user as { billingCycle?: string }).billingCycle ?? 'monthly',
+      planExpiresAt: (user as { planExpiresAt?: Date | null }).planExpiresAt ?? null,
       id: user._id,
       firebaseUid: user.firebaseUid,
       email: user.email,

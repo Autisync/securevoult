@@ -15,6 +15,11 @@ import { baseDomain } from '@/lib/domain';
 (() => {
   if ((window as any).__svLoaded) return;
   (window as any).__svLoaded = true;
+  // Not on SecureVoult itself: its master-password box must never get a login menu.
+  try {
+    const app = new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://vault.autisync.com');
+    if (location.hostname === app.hostname) return;
+  } catch { /* no app address configured */ }
 
   type Item = { id: string; title: string; username: string; hasTotp: boolean };
   type Kind = 'login' | 'otp';

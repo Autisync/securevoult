@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useVaultPreferences } from '@/hooks/useVaultPreferences';
 import { TwoStepSettings, RecoveryKitSettings } from '@/components/AccountSecurity';
-import { forgetDevice } from '@/lib/device-session';
+import { forgetDevice, enableRememberIfChosen } from '@/lib/device-session';
 import { parseCsv, detectSource, type CsvSource } from '@/lib/importers';
 import { CryptoService } from '@/lib/crypto';
 import {
@@ -38,6 +38,8 @@ interface SettingsProps {
 export function Settings({ onClose }: SettingsProps) {
   const { vault, exportVault, exportVaultCSV, importVault, importFromCSV, lockVault, updateEntry, changeMasterPassword } = useVault();
   const { user } = useAuth();
+  const currentPlan: PlanId = (user?.plan ?? 'free') as PlanId;
+  const [tab, setTab] = useState('profile');
   const { toast } = useToast();
   const { prefs, setPref } = useVaultPreferences();
   const { sessions, loading: sessionsLoading, error: sessionsError, fetchSessions, revokeSession, revokeOtherSessions } = useDeviceSessions();
@@ -246,7 +248,7 @@ export function Settings({ onClose }: SettingsProps) {
         <p className="text-sm text-muted-foreground mt-0.5">Manage your SecureVoult preferences and data.</p>
       </div>
 
-      <Tabs defaultValue="profile">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="bg-secondary/50 flex flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="profile"><User className="w-3.5 h-3.5 mr-1.5" />Profile</TabsTrigger>
           <TabsTrigger value="security"><Shield className="w-3.5 h-3.5 mr-1.5" />Security</TabsTrigger>
@@ -273,23 +275,20 @@ export function Settings({ onClose }: SettingsProps) {
                   <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
                 <span className="flex-shrink-0">
-                  <PlanBadge plan={((user as unknown as { plan?: PlanId })?.plan ?? 'free') as PlanId} size="md" />
+                  <PlanBadge plan={currentPlan} size="md" />
                 </span>
               </div>
-              <div className="border-t border-border/50 px-4 py-3 bg-secondary/20">
+              {currentPlan === 'free' && <div className="border-t border-border/50 px-4 py-3 bg-secondary/20">
                 <p className="text-xs text-muted-foreground">
                   Upgrade to Pro for unlimited entries, breach history, passkeys, and priority support.{' '}
                   <button
                     className="text-primary hover:underline font-medium"
-                    onClick={() => {
-                      const el = document.querySelector('[data-value="billing"]') as HTMLButtonElement | null;
-                      el?.click();
-                    }}
+                    onClick={() => setTab('billing')}
                   >
                     View plans →
                   </button>
                 </p>
-              </div>
+              </div>}
             </div>
           </Section>
           <Section title="Vault overview">
@@ -365,6 +364,7 @@ export function Settings({ onClose }: SettingsProps) {
                 const days = parseInt(v, 10);
                 setPref('rememberDays', days);
                 if (days > 0) {
+                  enableRememberIfChosen(days);
                   setPref('autoLockMinutes', 0);
                   toast({ title: 'Kept unlocked on this device', description: 'Starts from your next unlock. Auto-lock is now off; change it below if you like.' });
                 } else {
@@ -437,7 +437,8 @@ export function Settings({ onClose }: SettingsProps) {
         {/* Passkeys */}
         <TabsContent value="passkeys" className="mt-5 space-y-6">
           <PasskeySettings
-            planAllows={canUsePasskeys(((user as unknown as { plan?: PlanId })?.plan ?? 'free') as PlanId)}
+            planAllows={canUsePasskeys(currentPlan)}
+            onUpgrade={() => setTab('billing')}
           />
           <Section title="Why passkeys?">
             <TrustSignals max={3} compact />
@@ -1000,10 +1001,10 @@ export function Settings({ onClose }: SettingsProps) {
         {/* Billing */}
         <TabsContent value="billing" className="mt-5">
           <BillingSettings
-            currentPlan={((user as unknown as { plan?: PlanId })?.plan ?? 'free') as PlanId}
+            currentPlan={currentPlan}
             entryCount={entryCount}
-            billingCycle={(user as unknown as { billingCycle?: 'monthly' | 'yearly' })?.billingCycle ?? 'monthly'}
-            planExpiresAt={(user as unknown as { planExpiresAt?: string })?.planExpiresAt}
+            billingCycle={user?.billingCycle ?? 'monthly'}
+            planExpiresAt={user?.planExpiresAt ?? undefined}
           />
         </TabsContent>
 
