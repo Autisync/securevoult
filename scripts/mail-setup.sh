@@ -26,7 +26,7 @@ tmp="$(mktemp)"; trap 'shred -u "$tmp" 2>/dev/null || rm -f "$tmp"' EXIT
 
 say "Mail server and DNS (through the CRM)"
 (cd "$CRM_STACK" && docker compose exec -T crm-backend npm run -s securevoult:mail) > "$tmp" \
-  || die "The CRM step failed (see above). Deploy the CRM first so it has the securevoult:mail script."
+  || die "The CRM step failed (see the message above). Nothing was changed in SecureVoult."
 
 say "SecureVoult settings"
 cp "$SV_ENV" "$SV_ENV.bak-$(date +%Y%m%d-%H%M%S)"

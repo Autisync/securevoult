@@ -208,7 +208,7 @@ export function VaultInterface({ onViewPublicSite, onOpenAdmin }: VaultInterface
       if (breachCount > 0) {
         toast({
           title: `${breachCount} breached password${breachCount > 1 ? 's' : ''} detected`,
-          description: 'Open Security Center to review and replace them.',
+          description: 'Open Password health to review and replace them.',
           variant: 'destructive',
         });
       }

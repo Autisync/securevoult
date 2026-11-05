@@ -36,7 +36,7 @@ const nextConfig = {
                     "img-src 'self' data: blob: https:",
                     "font-src 'self' data: https:",
                     "connect-src 'self' https: wss:",
-                    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+                    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.youtube-nocookie.com",
                     "form-action 'self' https://checkout.stripe.com",
                 ].join('; '),
             },

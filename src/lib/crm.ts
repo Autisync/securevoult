@@ -42,3 +42,10 @@ export function notifySignup(user: { email?: string | null; name?: string | null
 export function heartbeat(name: string, ok: boolean, detail: Record<string, unknown>): Promise<boolean> {
   return post(`/api/status/heartbeat/${encodeURIComponent(name)}`, env('CRM_STATUS_TOKEN'), { ok, ...detail });
 }
+
+/** A partner or quote enquiry from the website: a contact and its own deal in the CRM. */
+export function notifyEnquiry(e: { kind: 'partner' | 'quote'; email: string; name: string; company?: string; phone?: string; country?: string; seats?: string; message?: string }): Promise<boolean> {
+  return post('/api/public/products/securevoult/signups', env('CRM_PRODUCT_TOKEN'), {
+    ...e, plan: e.kind === 'quote' ? 'enterprise' : 'partner', provider: 'website', at: new Date().toISOString(),
+  });
+}

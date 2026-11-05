@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Logo, LogoMark } from '@/components/Logo';
 import { PublicPricing } from '@/components/PublicPricing';
-import { LEGAL } from '@/lib/legal';
 import {
   ArrowRight, Check, ChevronDown, Fingerprint, Play, ShieldCheck, KeyRound, CreditCard, Landmark,
   StickyNote, Paperclip, UserCircle, Wifi, Smartphone, Globe, Lock, Server, Laptop, X, Menu,
@@ -318,7 +317,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const nav = [['Tour', '#tour'], ['Features', '#features'], ['Security', '#security'], ['Pricing', '#pricing'], ['FAQ', '#faq']];
+  const nav = [['Tour', '#tour'], ['Features', '#features'], ['Security', '#security'], ['Pricing', '#pricing'], ['Training', '/training'], ['Partners', '/partners']];
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -514,7 +513,7 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
             <p className="mt-4 text-muted-foreground text-lg">Start free. Pay when your team needs more.</p>
           </Reveal>
           <PublicPricing onChoose={(plan) => {
-            if (plan === 'enterprise') { window.location.href = `mailto:${LEGAL.email}?subject=${encodeURIComponent('SecureVoult Enterprise quote')}`; return; }
+            if (plan === 'enterprise') { window.location.href = '/partners#quote'; return; }
             onGetStarted();
           }} />
         </div>
@@ -563,6 +562,8 @@ export function LandingPage({ onGetStarted, onSignIn }: LandingPageProps) {
               <li><a href="#security" className="hover:text-foreground">Security</a></li>
               <li><a href="#pricing" className="hover:text-foreground">Pricing</a></li>
               <li><a href="/support" className="hover:text-foreground">Support</a></li>
+              <li><a href="/training" className="hover:text-foreground">Training videos</a></li>
+              <li><a href="/partners" className="hover:text-foreground">Become a partner</a></li>
             </ul>
           </div>
           <div>

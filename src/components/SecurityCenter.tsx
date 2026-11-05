@@ -173,7 +173,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
   return (
     <div className="max-w-2xl space-y-6 animate-fade-up">
       <div>
-        <h2 className="text-lg font-semibold">Security center</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Password health</h2>
         <p className="text-sm text-muted-foreground mt-0.5">Review and fix security issues in your vault.</p>
       </div>
 
