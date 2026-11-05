@@ -100,7 +100,7 @@ export function AdminSecurityLog() {
           </button>
           <div className="rounded-xl border border-border bg-card px-4 py-3">
             <p className={`text-sm font-medium ${data.email.configured ? 'text-emerald-400' : 'text-amber-300'}`}>{data.email.configured ? 'Alerts by email: on' : 'Alerts by email: not set up'}</p>
-            <p className="text-xs text-muted-foreground truncate">{data.email.configured ? `Critical events go to ${data.email.alertTo.join(', ')}` : 'Add the SMTP settings to .env.local and deploy'}</p>
+            <p className="text-xs text-muted-foreground truncate">{data.email.configured ? `Critical events go to ${data.email.alertTo.join(', ')}` : 'On the server run: bash ~/securevoult/scripts/mail-setup.sh'}</p>
           </div>
         </div>
       )}

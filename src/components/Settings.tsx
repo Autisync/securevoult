@@ -21,7 +21,7 @@ import { CryptoService } from '@/lib/crypto';
 import {
   User, Shield, Palette, FileDown, FileUp, Info, AlertTriangle,
   Download, Upload, CheckCircle2, Loader2, Lock, Clock, Clipboard,
-  Eye, EyeOff, RefreshCw, Puzzle, Monitor, Tag, X as XIcon, Hash,
+  Eye, EyeOff, RefreshCw, Puzzle, Monitor, Tag, X as XIcon, Hash, Users,
   Smartphone, Globe, Sun, Moon, SlidersHorizontal, Activity,
   CreditCard, Fingerprint,
 } from 'lucide-react';
@@ -32,6 +32,7 @@ import { PlanBadge } from '@/components/PlanGate';
 import { canUsePasskeys } from '@/lib/feature-gates';
 import type { PlanId } from '@/lib/plans';
 import { LEGAL } from '@/lib/legal';
+import { TeamSettings } from '@/components/TeamSettings';
 
 interface SettingsProps {
   onClose?: () => void;
@@ -41,7 +42,7 @@ export function Settings({ onClose }: SettingsProps) {
   const { vault, exportVault, exportVaultCSV, importVault, importFromCSV, lockVault, updateEntry, changeMasterPassword } = useVault();
   const { user } = useAuth();
   const currentPlan: PlanId = (user?.plan ?? 'free') as PlanId;
-  const SETTINGS_TABS = ['profile', 'security', 'passkeys', 'vault', 'appearance', 'importexport', 'extension', 'devices', 'billing', 'about'];
+  const SETTINGS_TABS = ['profile', 'security', 'passkeys', 'vault', 'appearance', 'importexport', 'extension', 'devices', 'team', 'billing', 'about'];
   const [tab, setTab] = useState(() => {
     const r = readRoute();
     return r[0] === 'vault' && r[1] === 'settings' && SETTINGS_TABS.includes(r[2]) ? r[2] : 'profile';
@@ -265,6 +266,7 @@ export function Settings({ onClose }: SettingsProps) {
           <TabsTrigger value="importexport"><FileDown className="w-3.5 h-3.5 mr-1.5" />Import / Export</TabsTrigger>
           <TabsTrigger value="extension"><Puzzle className="w-3.5 h-3.5 mr-1.5" />Extension</TabsTrigger>
           <TabsTrigger value="devices"><Monitor className="w-3.5 h-3.5 mr-1.5" />Devices</TabsTrigger>
+          <TabsTrigger value="team"><Users className="w-3.5 h-3.5 mr-1.5" />Team</TabsTrigger>
           <TabsTrigger value="billing"><CreditCard className="w-3.5 h-3.5 mr-1.5" />Billing</TabsTrigger>
           <TabsTrigger value="about"><Info className="w-3.5 h-3.5 mr-1.5" />About</TabsTrigger>
         </TabsList>
@@ -904,6 +906,12 @@ export function Settings({ onClose }: SettingsProps) {
         </TabsContent>
 
         {/* Devices */}
+        <TabsContent value="team" className="mt-5 space-y-6">
+          <Section title="Team">
+            <TeamSettings />
+          </Section>
+        </TabsContent>
+
         <TabsContent value="devices" className="mt-5 space-y-6" onFocus={() => { if (sessions.length === 0) fetchSessions(); }}>
           <Section title="Current session">
             <div className="bg-card border border-border rounded-xl overflow-hidden">
