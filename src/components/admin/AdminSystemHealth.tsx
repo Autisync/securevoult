@@ -114,7 +114,7 @@ export function AdminSystemHealth() {
       label: 'Encrypted files',
       icon: Paperclip,
       status: 'ok' as 'ok' | 'warn' | 'error',
-      detail: `${health.checks.files.count} file${health.checks.files.count === 1 ? '' : 's'} · ${size(health.checks.files.bytes)} stored`,
+      detail: health.checks.files.count === 0 ? 'None stored yet' : `${health.checks.files.count} file${health.checks.files.count === 1 ? '' : 's'} · ${size(health.checks.files.bytes)} stored`,
     }] : []),
     {
       label: 'Rate limiting',

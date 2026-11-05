@@ -6,7 +6,6 @@ import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/rate-limit';
 import { tooManyRequests } from '@/lib/api-error';
 import { VaultFile } from '@/lib/models';
 import { readdir, stat, statfs } from 'node:fs/promises';
-import pkg from '../../../../../package.json';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,7 +76,8 @@ export async function GET(request: NextRequest) {
   // Rate limits: Redis when Upstash is configured, otherwise this server's memory.
   const rateLimitMode = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN ? 'redis' : 'in-memory';
 
-  const appVersion = (pkg as { version?: string }).version ?? 'unknown';
+  // Bump with each release you want to name; the commit below is always exact.
+  const appVersion = '1.0.0';
 
   const [backups, disk, files] = await Promise.all([
     backupInfo(),
