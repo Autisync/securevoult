@@ -271,9 +271,25 @@ const incidentSchema = new mongoose.Schema(
 incidentSchema.index({ status: 1, severity: 1, createdAt: -1 });
 incidentSchema.index({ companyId: 1, status: 1 });
 
+/**
+ * VaultFile — an encrypted attachment. The server never sees the name or the
+ * contents; the vault (also encrypted) says which item it belongs to.
+ */
+const vaultFileSchema = new mongoose.Schema(
+  {
+    userId: { type: String, required: true, index: true },
+    fileId: { type: String, required: true },
+    size: { type: Number, required: true }, // encrypted bytes
+    data: { type: Buffer, required: true },
+  },
+  { timestamps: true }
+);
+vaultFileSchema.index({ userId: 1, fileId: 1 }, { unique: true });
+
 // Export models (guard against hot-reload re-registration)
 export const User = mongoose.models.User || mongoose.model('User', userSchema);
 export const Vault = mongoose.models.Vault || mongoose.model('Vault', vaultSchema);
+export const VaultFile = mongoose.models.VaultFile || mongoose.model('VaultFile', vaultFileSchema);
 export const AdminActivity =
   mongoose.models.AdminActivity || mongoose.model('AdminActivity', adminActivitySchema);
 export const Session =

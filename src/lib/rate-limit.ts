@@ -172,6 +172,9 @@ export const RATE_LIMITS = {
   /** vault GET: 120 reads per 15 min per IP */
   vaultRead: { key: 'vault-read', limit: 120, windowMs: 15 * 60 * 1000 } as RateLimitConfig,
 
+  /** encrypted attachments: 200 uploads/downloads per 15 min per IP */
+  vaultFiles: { key: 'vault-files', limit: 200, windowMs: 15 * 60 * 1000 } as RateLimitConfig,
+
   /** session list/revoke: 30 requests per 5 min per IP */
   sessions: { key: 'sessions', limit: 30, windowMs: 5 * 60 * 1000 } as RateLimitConfig,
 

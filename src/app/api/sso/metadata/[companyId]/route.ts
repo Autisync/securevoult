@@ -45,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return notFound('Company not found.');
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.securevoult.co.uk';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://vault.autisync.com';
   const xml = getSPMetadataXML(companyId, appUrl);
 
   return new NextResponse(xml, {

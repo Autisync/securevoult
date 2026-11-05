@@ -1,104 +1,81 @@
 import { LegalLayout, P, H3, Ul, Li, InfoBox } from '@/components/LegalLayout';
+import { LEGAL } from '@/lib/legal';
 
 export const metadata = {
-  title: 'Support — SecureVoult',
-  description: 'Get help with SecureVoult. Contact our support team or browse common questions.',
+  title: 'Support — SecureVoult by Autisync',
+  description: 'Help with your SecureVoult account, vault, extension and recovery.',
 };
 
 const sections = [
   {
     id: 'contact',
-    title: 'Contact Support',
+    title: 'Contact us',
     content: (
       <>
-        <P>Our support team is available Monday to Friday, 9am–6pm GMT. We typically respond within one business day.</P>
-        <InfoBox color="blue">
-          <strong>Email:</strong>{' '}
-          <a href="mailto:support@securevoult.co.uk" className="underline">
-            support@securevoult.co.uk
-          </a>
-        </InfoBox>
-        <P>Please include your account email address and a description of the issue when contacting us.</P>
+        <InfoBox color="blue"><strong>Email:</strong> {LEGAL.email}</InfoBox>
+        <P>Write from your account&apos;s email address and tell us what you were doing and what happened. Never send us your master password or recovery key; we will never ask for them.</P>
+      </>
+    ),
+  },
+  {
+    id: 'forgot',
+    title: 'Forgot your master password',
+    content: (
+      <>
+        <P>Use your Recovery Kit. On the unlock screen choose <strong>Forgot master password?</strong>, type the recovery key, then choose a new master password. You&apos;ll get a new recovery key; print the new kit and destroy the old one.</P>
+        <P>No Recovery Kit yet? While you still know your master password, make one in <strong>Settings → Security → Recovery Kit</strong>. Without the master password or the recovery key, nobody can open the vault, including us.</P>
+      </>
+    ),
+  },
+  {
+    id: 'unlock',
+    title: 'Unlocking without typing your master password',
+    content: (
+      <>
+        <H3>Windows Hello, Touch ID or fingerprint</H3>
+        <P>Turn it on in <strong>Settings → Security → Quick unlock</strong> on each device. If your browser or device can&apos;t do it yet, you&apos;ll see a message saying so; use the option below instead.</P>
+        <H3>Keep me unlocked</H3>
+        <P>Tick <strong>Keep me unlocked on this device</strong> on the unlock screen, or set the number of days in Settings. Only use it on a computer that only you use.</P>
+      </>
+    ),
+  },
+  {
+    id: 'moving',
+    title: 'Moving from another password manager',
+    content: (
+      <Ul>
+        <Li>Export a CSV from your old manager (in NordPass: Settings → Export items)</Li>
+        <Li>In SecureVoult open <strong>Settings → Import / Export</strong> and choose <strong>Select CSV file</strong></Li>
+        <Li>Delete the CSV afterwards: it contains your passwords in plain text</Li>
+      </Ul>
+    ),
+  },
+  {
+    id: 'sync',
+    title: 'Sync and the extension',
+    content: (
+      <>
+        <H3>Shows &quot;Offline&quot; or changes don&apos;t appear</H3>
+        <Ul>
+          <Li>Your changes are kept on the device and upload when you&apos;re back online</Li>
+          <Li>Make sure each device is signed in with the same email</Li>
+          <Li>If two-step sign-in is on, a new device asks for a code before it can sync</Li>
+        </Ul>
+        <H3>Extension not offering a login</H3>
+        <Ul>
+          <Li>Unlock it from the toolbar icon</Li>
+          <Li>Check the item&apos;s web address matches the site. The extension deliberately won&apos;t offer logins on a different domain</Li>
+        </Ul>
       </>
     ),
   },
   {
     id: 'account',
-    title: 'Account &amp; Billing',
+    title: 'Plans and closing your account',
     content: (
       <>
-        <H3>Reset your master password</H3>
-        <P>For security reasons, SecureVoult cannot recover or reset your master password — it never leaves your device. If you have forgotten your master password, you will need to reset your account. This will permanently delete all vault data.</P>
-        <P>To reset your account, go to the login screen and select <strong>Forgot master password?</strong></P>
-
-        <H3>Cancel subscription</H3>
-        <P>You can cancel your subscription at any time from <strong>Settings → Billing</strong> inside the app, or by contacting support. You will retain access until the end of your current billing period.</P>
-
-        <H3>Delete your account</H3>
-        <P>To permanently delete your account and all associated data, go to <strong>Settings → Account → Delete Account</strong>, or email us at{' '}
-          <a href="mailto:support@securevoult.co.uk" className="underline">support@securevoult.co.uk</a>.
-        </P>
-      </>
-    ),
-  },
-  {
-    id: 'vault',
-    title: 'Vault &amp; Sync',
-    content: (
-      <>
-        <H3>Vault not syncing</H3>
-        <Ul>
-          <Li>Ensure you have an active internet connection.</Li>
-          <Li>Try signing out and back in on the affected device.</Li>
-          <Li>Check that you are using the same account email on all devices.</Li>
-        </Ul>
-
-        <H3>Auto-fill not working</H3>
-        <Ul>
-          <Li><strong>iOS:</strong> Go to Settings → Passwords → AutoFill Passwords and enable SecureVoult.</Li>
-          <Li><strong>Android:</strong> Go to Settings → General Management → Passwords and Autofill → select SecureVoult.</Li>
-          <Li><strong>Browser:</strong> Ensure the SecureVoult browser extension is installed and you are signed in.</Li>
-        </Ul>
-
-        <H3>Biometric unlock not working</H3>
-        <P>Go to <strong>Settings → Security → Biometric Unlock</strong> inside the app and re-enable Face ID or fingerprint authentication. If the issue persists, try removing and re-adding your biometric in your device settings.</P>
-      </>
-    ),
-  },
-  {
-    id: 'security',
-    title: 'Security &amp; Privacy',
-    content: (
-      <>
-        <H3>Report a security vulnerability</H3>
-        <P>If you have discovered a potential security vulnerability in SecureVoult, please disclose it responsibly by emailing:</P>
-        <InfoBox color="red">
-          <strong>Security:</strong>{' '}
-          <a href="mailto:security@securevoult.co.uk" className="underline">
-            security@securevoult.co.uk
-          </a>
-        </InfoBox>
-        <P>Please do not disclose the vulnerability publicly until we have had the opportunity to investigate and release a fix.</P>
-
-        <H3>Is my data safe?</H3>
-        <P>Yes. SecureVoult uses end-to-end AES-256 encryption. Your vault is encrypted on your device before it is ever transmitted or stored. We have zero knowledge of your master password or vault contents.</P>
-      </>
-    ),
-  },
-  {
-    id: 'extension',
-    title: 'Browser Extension',
-    content: (
-      <>
-        <H3>Install the extension</H3>
-        <Ul>
-          <Li><a href="https://chrome.google.com/webstore" className="underline" target="_blank" rel="noopener noreferrer">Chrome Web Store</a></Li>
-          <Li><a href="https://addons.mozilla.org" className="underline" target="_blank" rel="noopener noreferrer">Firefox Add-ons</a></Li>
-          <Li><a href="https://microsoftedge.microsoft.com/addons" className="underline" target="_blank" rel="noopener noreferrer">Microsoft Edge Add-ons</a></Li>
-        </Ul>
-
-        <H3>Extension not detecting passwords</H3>
-        <P>Make sure you are signed in to the extension. If the issue persists, try disabling and re-enabling the extension from your browser&apos;s extension manager, then refresh the page.</P>
+        <P>Change or cancel your plan in <strong>Settings → Billing</strong>. To close your account and delete your data, export your vault first, then email {LEGAL.email} from your account&apos;s address. We delete it within one month.</P>
+        <P>Found a security problem? See the <a href="/security" className="underline underline-offset-2">security page</a>.</P>
       </>
     ),
   },
@@ -107,12 +84,11 @@ const sections = [
 export default function SupportPage() {
   return (
     <LegalLayout
-      title="Support Centre"
-      subtitle="Get help with your SecureVoult account, vault, and apps."
-      lastUpdated="21 April 2026"
-      effectiveDate="21 April 2026"
-      badge="Support"
-      badgeColor="blue"
+      title="Support"
+      subtitle="Help with your SecureVoult account, vault, extension and recovery."
+      lastUpdated={LEGAL.updated}
+      effectiveDate={LEGAL.updated}
+      badge="Help"
       sections={sections}
     />
   );

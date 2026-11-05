@@ -15,6 +15,8 @@ interface PricingTableProps {
   currentPlan?: PlanId;
   onUpgrade?: (plan: PlanId) => void;
   compact?: boolean;
+  /** On the public site: no "current plan", every button starts sign-up. */
+  publicView?: boolean;
 }
 
 const PLAN_ICONS: Record<PlanId, React.ElementType> = {
@@ -56,7 +58,7 @@ function formatLimit(val: number | boolean): React.ReactNode {
   return <span>{val}</span>;
 }
 
-export function PricingTable({ currentPlan = 'free', onUpgrade, compact = false }: PricingTableProps) {
+export function PricingTable({ currentPlan = 'free', onUpgrade, compact = false, publicView = false }: PricingTableProps) {
   const [cycle, setCycle] = useState<BillingCycle>('monthly');
 
   return (
@@ -83,10 +85,10 @@ export function PricingTable({ currentPlan = 'free', onUpgrade, compact = false 
           const pricing = PLAN_PRICING[planId];
           const limits  = PLAN_LIMITS[planId];
           const Icon    = PLAN_ICONS[planId];
-          const isCurrent = planId === currentPlan;
+          const isCurrent = !publicView && planId === currentPlan;
           const discount = getYearlyDiscount(planId);
           const price = cycle === 'yearly' ? pricing.yearly / 12 : pricing.monthly;
-          const isUpgrade = PLANS.indexOf(planId) > PLANS.indexOf(currentPlan);
+          const isUpgrade = publicView || PLANS.indexOf(planId) > PLANS.indexOf(currentPlan);
 
           return (
             <div
@@ -157,6 +159,7 @@ export function PricingTable({ currentPlan = 'free', onUpgrade, compact = false 
                 onClick={() => onUpgrade?.(planId)}
               >
                 {pricing.custom ? 'Contact Sales' :
+                 publicView ? (price === 0 ? 'Start free' : `Choose ${meta.name}`) :
                  isCurrent ? 'Current plan' :
                  isUpgrade ? `Upgrade to ${meta.name}` : 'Downgrade'}
               </Button>
@@ -166,7 +169,7 @@ export function PricingTable({ currentPlan = 'free', onUpgrade, compact = false 
       </div>
 
       {/* Feature comparison table (non-compact mode) */}
-      {!compact && (
+      {!compact && !publicView && (
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-xs">
             <thead>

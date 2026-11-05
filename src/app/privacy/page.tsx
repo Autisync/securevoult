@@ -1,205 +1,156 @@
 import { LegalLayout, P, H3, Ul, Li, InfoBox, Table } from '@/components/LegalLayout';
+import { LEGAL } from '@/lib/legal';
 
 export const metadata = {
-  title: 'Privacy Policy — SecureVoult',
-  description: 'How SecureVoult collects, processes, and protects your personal data. GDPR compliant.',
+  title: 'Privacy Policy — SecureVoult by Autisync',
+  description: 'What SecureVoult stores, why, for how long, and your rights under UK GDPR.',
 };
+
+const who = [LEGAL.company, LEGAL.companyNumber && `company number ${LEGAL.companyNumber}`, LEGAL.address].filter(Boolean).join(', ');
 
 const sections = [
   {
-    id: 'introduction',
-    title: 'Introduction',
+    id: 'who-we-are',
+    title: 'Who we are',
     content: (
       <>
-        <P>SecureVoult Ltd (&quot;SecureVoult&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is committed to protecting your personal data and respecting your privacy. This Privacy Policy explains how we collect, use, store, and share information about you when you use our website (<strong>securevoult.co.uk</strong>), desktop apps, mobile apps, and browser extensions (collectively, the &quot;Services&quot;).</P>
-        <P>We are the <strong>data controller</strong> for the personal data described in this policy. Our registered address is SecureVoult Ltd, 20 Finsbury Street, London, EC2Y 9AQ, United Kingdom.</P>
+        <P>{LEGAL.product} is a password manager made and run by <strong>{who}</strong> (&quot;Autisync&quot;, &quot;we&quot;, &quot;us&quot;). This policy covers the web app at <strong>{LEGAL.site}</strong>, the browser extension and any SecureVoult apps.</P>
+        <P>For your account data, Autisync is the <strong>data controller</strong> under the UK GDPR and the Data Protection Act 2018.{LEGAL.icoNumber ? <> Our ICO registration number is <strong>{LEGAL.icoNumber}</strong>.</> : null} If you use SecureVoult through your employer&apos;s company plan, your employer is the controller for that use and we act as its processor (see the <a href="/dpa" className="underline underline-offset-2">Data Processing Agreement</a>).</P>
         <InfoBox color="green">
-          <strong>Zero-knowledge summary:</strong> Your vault data is encrypted on your device before it ever reaches our servers. We cannot read your passwords, notes, or any vault content. We only hold the metadata required to run the service.
+          <strong>The short version:</strong> your vault and your files are encrypted on your own device with a key made from your master password. We store only the locked copy and cannot open it. Your master password and recovery key never reach us.
         </InfoBox>
       </>
     ),
   },
   {
-    id: 'data-we-collect',
-    title: 'Data We Collect',
+    id: 'what-we-store',
+    title: 'What we store',
     content: (
       <>
-        <H3>Account data</H3>
+        <H3>Your account</H3>
         <Ul>
-          <Li>Email address (required for authentication and service communications)</Li>
-          <Li>Password hash — a derived key, never the raw master password</Li>
-          <Li>Account creation date, last login timestamp, subscription tier</Li>
-          <Li>Display name (optional)</Li>
+          <Li>Email address, display name (if you give one) and a sign-in ID from Firebase Authentication</Li>
+          <Li>Your plan, billing period and plan dates, and your role (user, company admin or admin)</Li>
+          <Li>If you turn on two-step sign-in: the authenticator secret (encrypted with a server key) and one-way hashes of your backup codes</Li>
+          <Li>If you add a passkey for signing in: its public key and a label. The private key stays on your device</Li>
         </Ul>
-        <H3>Vault data (zero-knowledge encrypted)</H3>
+        <H3>Your vault (encrypted, unreadable to us)</H3>
         <Ul>
-          <Li>Encrypted vault blob — we cannot decrypt or read any of this content</Li>
-          <Li>Encrypted item metadata such as item count and last modified date</Li>
-          <Li>Vault salt and verification hash (used to validate your master password client-side)</Li>
+          <Li>The encrypted vault, its version number and when it last synced</Li>
+          <Li>Encrypted file attachments, each with a random ID and its size. File names and contents are inside the encryption</Li>
+          <Li>The number of items, which your app sends so plan limits can apply</Li>
         </Ul>
-        <H3>Usage and analytics data</H3>
+        <H3>Security and sessions</H3>
         <Ul>
-          <Li>Page views, feature interactions, session duration (anonymised)</Li>
-          <Li>Browser type, operating system, screen resolution</Li>
-          <Li>Referral source (e.g., utm_source)</Li>
+          <Li>Signed-in sessions: device type, browser user-agent, IP address and last-seen time, so you can see and end sessions</Li>
+          <Li>Short-lived rate-limit counters keyed by IP address, to stop password-guessing and abuse</Li>
+          <Li>Records of plan-limit events and admin actions, with the IP address they came from</Li>
         </Ul>
-        <H3>Payment data</H3>
-        <P>Payments are processed by Stripe. We receive a non-sensitive token and subscription status. We do not store card numbers, CVVs, or bank account details.</P>
-        <H3>Support data</H3>
-        <P>If you contact us, we store your email, message content, and any attachments you provide to resolve your request.</P>
+        <H3>Payments</H3>
+        <P>When paid plans are switched on, payments are taken by Stripe. We receive your subscription status and a customer reference, never your card details.</P>
+        <H3>What we do not collect</H3>
+        <P>No master password, no recovery key, no readable vault content, no advertising identifiers and no analytics or tracking scripts.</P>
       </>
     ),
   },
   {
-    id: 'legal-basis',
-    title: 'Legal Basis for Processing',
+    id: 'why',
+    title: 'Why we use it, and our lawful basis',
+    content: (
+      <Table
+        headers={['Purpose', 'Lawful basis (UK GDPR Art. 6)']}
+        rows={[
+          ['Running your account, syncing your vault and files', 'Contract, 6(1)(b)'],
+          ['Two-step sign-in, sessions, rate limits, abuse prevention', 'Legitimate interests in keeping accounts secure, 6(1)(f)'],
+          ['Taking payment for paid plans', 'Contract, 6(1)(b)'],
+          ['Answering your emails and support requests', 'Contract or legitimate interests'],
+          ['Keeping financial records', 'Legal obligation, 6(1)(c)'],
+          ['Product news by email (only if you opt in)', 'Consent, 6(1)(a)'],
+        ]}
+      />
+    ),
+  },
+  {
+    id: 'services',
+    title: 'Services we use',
     content: (
       <>
-        <P>We process your personal data under the following legal bases (UK GDPR Article 6):</P>
+        <P>We do not sell or rent personal data. These providers handle some of it for us:</P>
         <Table
-          headers={['Purpose', 'Legal Basis']}
+          headers={['Provider', 'What for', 'What they see']}
           rows={[
-            ['Providing the vault service', 'Contract performance (Art. 6(1)(b))'],
-            ['Sending transactional emails (account alerts)', 'Contract performance (Art. 6(1)(b))'],
-            ['Processing payments', 'Contract performance (Art. 6(1)(b))'],
-            ['Security monitoring and fraud prevention', 'Legitimate interests (Art. 6(1)(f))'],
-            ['Analytics to improve the product', 'Legitimate interests (Art. 6(1)(f))'],
-            ['Marketing emails (opt-in only)', 'Consent (Art. 6(1)(a))'],
-            ['Legal compliance (tax, regulation)', 'Legal obligation (Art. 6(1)(c))'],
+            ['Firebase Authentication (Google)', 'Signing in', 'Email, sign-in ID, sign-in events'],
+            ['Cloudflare', 'DNS, TLS and protection in front of our server', 'IP address and request details, encrypted vault traffic'],
+            [`Our own server${LEGAL.serverLocation ? ` (${LEGAL.serverLocation})` : ''}`, 'App, database and nightly backups, run by Autisync', 'Everything listed above; vaults and files stay encrypted'],
+            ['Stripe', 'Payments, once switched on', 'Billing details you give Stripe'],
           ]}
         />
-      </>
-    ),
-  },
-  {
-    id: 'data-retention',
-    title: 'Data Retention',
-    content: (
-      <>
+        <H3>Requests your device makes directly</H3>
         <Ul>
-          <Li>Account data: retained while your account is active and for 30 days after deletion (to allow recovery)</Li>
-          <Li>Vault data: deleted immediately upon account deletion request</Li>
-          <Li>Payment records: retained for 7 years (UK tax law requirement)</Li>
-          <Li>Support tickets: retained for 2 years then deleted</Li>
-          <Li>Analytics: anonymised after 13 months</Li>
+          <Li><strong>Leaked-password check (Have I Been Pwned):</strong> your device sends the first 5 characters of a password&apos;s SHA-1 hash and gets back a list to compare against. The password and the full hash never leave your device.</Li>
+          <Li><strong>Website icons (DuckDuckGo):</strong> to show a site&apos;s icon next to an item, your device asks DuckDuckGo&apos;s icon service for that website&apos;s address. DuckDuckGo can see which website icons are requested and your IP address.</Li>
         </Ul>
-        <InfoBox color="blue">You can request immediate deletion of your account and vault data at any time from Settings → Account → Delete Account. Deletion is irreversible.</InfoBox>
+        <P>Google, Cloudflare and Stripe may process data outside the UK. Where they do, transfers rely on the UK&apos;s adequacy regulations, the UK International Data Transfer Addendum or equivalent safeguards in their terms.</P>
       </>
     ),
   },
   {
-    id: 'sharing',
-    title: 'Sharing Your Data',
+    id: 'retention',
+    title: 'How long we keep it',
     content: (
-      <>
-        <P>We do not sell, rent, or trade your personal data. We share data only with the following processors under written data processing agreements:</P>
-        <Table
-          headers={['Processor', 'Purpose', 'Location']}
-          rows={[
-            ['Firebase (Google)', 'Authentication', 'EU/UK'],
-            ['MongoDB Atlas', 'Encrypted vault storage', 'EU (Ireland)'],
-            ['Stripe', 'Payment processing', 'EU/UK/US (SCC)'],
-            ['SendGrid', 'Transactional email', 'EU/UK/US (SCC)'],
-            ['Vercel', 'Web hosting & CDN', 'EU/UK/US (SCC)'],
-          ]}
-        />
-        <P>We may disclose personal data if required by law, court order, or to protect the rights and safety of SecureVoult and its users.</P>
-      </>
+      <Ul>
+        <Li>Account and vault: while your account is open. When you ask us to close it, we delete it within one month</Li>
+        <Li>Deleted vault items: a deletion marker (no content) is kept for 180 days so other devices don&apos;t bring the item back</Li>
+        <Li>Backups: nightly encrypted-vault backups are kept for 14 days, then overwritten</Li>
+        <Li>Sessions: until you sign out or end them, or the account closes</Li>
+        <Li>Payment and tax records: 6 years, as UK law requires</Li>
+        <Li>Support emails: up to 2 years</Li>
+      </Ul>
     ),
   },
   {
-    id: 'international-transfers',
-    title: 'International Transfers',
+    id: 'rights',
+    title: 'Your rights',
     content: (
       <>
-        <P>Some of our processors operate in the United States. All transfers outside the UK/EEA are protected by UK International Data Transfer Agreements (IDTAs) or EU Standard Contractual Clauses (SCCs) in line with UK GDPR Chapter V.</P>
-        <P>You may request a copy of the safeguards we have in place by emailing <strong>privacy@securevoult.co.uk</strong>.</P>
-      </>
-    ),
-  },
-  {
-    id: 'your-rights',
-    title: 'Your Rights',
-    content: (
-      <>
-        <P>Under UK GDPR, you have the following rights:</P>
-        <Ul>
-          <Li><strong>Access:</strong> request a copy of all personal data we hold about you</Li>
-          <Li><strong>Rectification:</strong> correct inaccurate or incomplete data</Li>
-          <Li><strong>Erasure:</strong> ask us to delete your data (&quot;right to be forgotten&quot;)</Li>
-          <Li><strong>Restriction:</strong> pause processing while a dispute is resolved</Li>
-          <Li><strong>Portability:</strong> receive your data in a machine-readable format (JSON export available in-app)</Li>
-          <Li><strong>Objection:</strong> object to processing based on legitimate interests</Li>
-          <Li><strong>Withdraw consent:</strong> for any consent-based processing at any time</Li>
-          <Li><strong>Automated decision-making:</strong> we do not use automated decision-making or profiling that significantly affects you</Li>
-        </Ul>
-        <P>To exercise any right, email <strong>privacy@securevoult.co.uk</strong>. We respond within 30 days. If you are unsatisfied, you may lodge a complaint with the <a href="https://ico.org.uk" className="underline underline-offset-2 hover:opacity-80" target="_blank" rel="noopener noreferrer">UK Information Commissioner&apos;s Office (ICO)</a>.</P>
+        <P>You can ask us to give you a copy of your data, correct it, delete it, restrict or object to how we use it, or give it to you in a portable format. You can export your vault yourself at any time from Settings → Import / Export.</P>
+        <P>To make a request, email <strong>{LEGAL.email}</strong> from your account&apos;s address. We reply within one month. We may ask you to confirm it&apos;s you before acting.</P>
+        <P>If you are unhappy with how we handle your data, you can complain to the <a href="https://ico.org.uk/make-a-complaint/" className="underline underline-offset-2" target="_blank" rel="noopener noreferrer">Information Commissioner&apos;s Office</a>. We&apos;d appreciate the chance to put it right first.</P>
       </>
     ),
   },
   {
     id: 'security',
-    title: 'Security Measures',
+    title: 'How we protect it',
     content: (
       <>
         <Ul>
-          <Li>AES-256-GCM encryption for all vault data, performed client-side</Li>
-          <Li>Argon2id key derivation for master passwords (64 MiB, 3 passes)</Li>
-          <Li>TLS 1.3 for all data in transit</Li>
-          <Li>MongoDB Atlas encryption at rest (AES-256)</Li>
-          <Li>Multi-factor authentication available and recommended</Li>
-          <Li>Quarterly penetration testing by an independent third party</Li>
-          <Li>Access to production systems is restricted by role and protected by hardware keys</Li>
+          <Li>Vault and files encrypted on your device with AES-256-GCM, using a key derived with Argon2id (64 MiB, 3 passes)</Li>
+          <Li>All traffic over HTTPS</Li>
+          <Li>Optional two-step sign-in with an authenticator app, required for vault access when it is on</Li>
+          <Li>Server access limited to Autisync administrators</Li>
         </Ul>
-        <InfoBox color="green">Even in the event of a data breach of our servers, your vault contents cannot be decrypted without your master password.</InfoBox>
+        <InfoBox color="green">If our server were ever breached, your vault and files would still be locked without your master password or recovery key.</InfoBox>
+        <P>If we have a personal data breach that is likely to put you at risk, we will tell you and, where required, the ICO within 72 hours of finding out.</P>
       </>
     ),
   },
   {
-    id: 'cookies',
-    title: 'Cookies & Tracking',
+    id: 'storage-on-device',
+    title: 'Cookies and storage on your device',
     content: (
-      <>
-        <P>We use cookies and similar technologies. See our <a href="/cookies" className="underline underline-offset-2 hover:opacity-80">Cookie Policy</a> for full details. In summary:</P>
-        <Ul>
-          <Li><strong>Essential cookies:</strong> required for authentication and security — cannot be disabled</Li>
-          <Li><strong>Functional cookies:</strong> remember your preferences (theme, language) — optional</Li>
-          <Li><strong>Analytics cookies:</strong> anonymised usage statistics — optional, consent required</Li>
-        </Ul>
-        <P>We do not use advertising, tracking, or fingerprinting technologies.</P>
-      </>
+      <P>We only store what the app needs to work: your sign-in, an encrypted copy of your vault for offline use, and your settings. There are no advertising or analytics cookies. Details are in the <a href="/cookies" className="underline underline-offset-2">Cookie Policy</a>.</P>
     ),
   },
   {
     id: 'children',
-    title: "Children's Privacy",
-    content: (
-      <P>Our Services are not directed to children under the age of 16. We do not knowingly collect personal data from children. If we become aware that a child under 16 has provided us with personal data, we will delete it promptly. Contact us at <strong>privacy@securevoult.co.uk</strong> if you believe this has occurred.</P>
-    ),
+    title: 'Children',
+    content: <P>SecureVoult is not meant for children under 13, and we don&apos;t knowingly hold their data. If you think a child has given us data, email us and we&apos;ll delete it.</P>,
   },
   {
     id: 'changes',
-    title: 'Changes to This Policy',
-    content: (
-      <>
-        <P>We may update this Privacy Policy from time to time. We will notify you of material changes via email at least 30 days before they take effect. The &quot;Last updated&quot; date at the top of this page reflects the most recent revision.</P>
-        <P>Continued use of the Services after a change takes effect constitutes your acceptance of the updated policy.</P>
-      </>
-    ),
-  },
-  {
-    id: 'contact',
-    title: 'Contact & Data Protection Officer',
-    content: (
-      <>
-        <P>For any privacy-related queries, data subject requests, or to reach our Data Protection Officer:</P>
-        <Ul>
-          <Li>Email: privacy@securevoult.co.uk</Li>
-          <Li>Post: SecureVoult Ltd, Data Protection Officer, 20 Finsbury Street, London, EC2Y 9AQ</Li>
-          <Li>ICO registration number: ZB123456 (illustrative — replace with your actual ICO number)</Li>
-        </Ul>
-      </>
-    ),
+    title: 'Changes to this policy',
+    content: <P>If we make an important change, we&apos;ll tell you by email or in the app before it takes effect. The date at the top shows the latest version.</P>,
   },
 ];
 
@@ -207,11 +158,10 @@ export default function PrivacyPage() {
   return (
     <LegalLayout
       title="Privacy Policy"
-      subtitle="We believe privacy is a fundamental right. Here is exactly what data we collect, why, and how we protect it."
-      lastUpdated="1 August 2025"
-      effectiveDate="1 August 2025"
-      badge="GDPR Compliant"
-      badgeColor="bg-green-500/10 text-green-400 border-green-500/20"
+      subtitle="What SecureVoult stores, why, for how long, and what you can ask us to do with it."
+      lastUpdated={LEGAL.updated}
+      effectiveDate={LEGAL.updated}
+      badge="UK GDPR"
       sections={sections}
     />
   );

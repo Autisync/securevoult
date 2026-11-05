@@ -13,10 +13,18 @@ const inter = localFont({
   variable: "--font-geist-sans",
 });
 
+// Fraunces (SIL Open Font License) for display headings on the public site.
+const display = localFont({
+  src: "./fonts/Fraunces-Variable.woff2",
+  weight: "300 700",
+  display: "swap",
+  variable: "--font-display",
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: "SecureVoult by Autisync — Encrypted Password Manager",
-  description: "Zero-knowledge, end-to-end encrypted password manager. Your data stays yours.",
+  description: "The private, zero-knowledge password manager from Autisync. Passwords, 2FA codes, cards, bank details and files, encrypted on your device before they ever leave it.",
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -29,7 +37,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "SecureVoult by Autisync — Encrypted Password Manager",
-    description: "Zero-knowledge, AES-256 encrypted password manager with autofill and breach monitoring.",
+    description: "Passwords, 2FA codes, cards, bank details and files, encrypted on your device. Autofill, Windows Hello unlock and breach alerts.",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
     type: "website",
   },
@@ -52,9 +60,9 @@ export default function RootLayout({
         {/* Inline script to apply theme before first paint — prevents FOUC */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <link rel="manifest" href="/site.webmanifest" />
-        <meta name="theme-color" content="#080d1a" />
+        <meta name="theme-color" content="#0f0f0e" />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${inter.className} ${inter.variable} ${display.variable}`} suppressHydrationWarning>
         <ThemeProvider>
           {children}
         </ThemeProvider>

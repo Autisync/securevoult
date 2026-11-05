@@ -13,6 +13,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 180 3% 11%;
     --primary: 39 50% 42%;
+    --logo-hi: #D9B460;
+    --logo-mid: #B2862F;
+    --logo-lo: #6F4F17;
     --primary-foreground: 40 30% 98%;
     --secondary: 40 15% 92%;
     --secondary-foreground: 180 3% 15%;
@@ -37,6 +40,9 @@
     --popover: 180 3% 12%;
     --popover-foreground: 40 20% 94%;
     --primary: 40 52% 56%;
+    --logo-hi: #F2D797;
+    --logo-mid: #CDA24C;
+    --logo-lo: #8E6722;
     --primary-foreground: 180 4% 9%;
     --secondary: 180 2% 16%;
     --secondary-foreground: 40 15% 88%;
@@ -185,4 +191,39 @@
 /* Respect "reduce motion": no slides, fades or pulses. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* ── Public site: the vault door that opens on load ───────────────────────── */
+@keyframes sv-dial {
+  0% { transform: rotate(0deg); }
+  35% { transform: rotate(-120deg); }
+  65% { transform: rotate(48deg); }
+  100% { transform: rotate(0deg); }
+}
+@keyframes sv-bolt { 0%, 55% { transform: translateY(0); } 80%, 100% { transform: translateY(7px); } }
+@keyframes sv-door { 0%, 70% { transform: perspective(1200px) rotateY(0deg); } 100% { transform: perspective(1200px) rotateY(-24deg) translateX(-8%); } }
+@keyframes sv-card-in { 0%, 72% { opacity: 0; transform: translate(10%, 6%) scale(.94); } 100% { opacity: 1; transform: none; } }
+@keyframes sv-glow { 0%, 60% { opacity: .25; } 100% { opacity: 1; } }
+@keyframes sv-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes sv-sheen { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes sv-tick { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+.sv-dial { animation: sv-dial 2.4s cubic-bezier(.65,0,.35,1) .3s both; transform-origin: 50% 50%; }
+.sv-bolt { animation: sv-bolt 2.8s cubic-bezier(.65,0,.35,1) .3s both; }
+.sv-door { animation: sv-door 3.6s cubic-bezier(.22,1,.36,1) .3s both; transform-origin: 0% 50%; }
+.sv-card-in { animation: sv-card-in 3.9s cubic-bezier(.22,1,.36,1) .3s both; }
+.sv-glow { animation: sv-glow 3.4s ease-out .3s both; }
+.sv-rise { animation: sv-rise .8s cubic-bezier(.22,1,.36,1) both; }
+.sv-sheen {
+  background: linear-gradient(100deg, var(--logo-lo) 20%, var(--logo-hi) 40%, var(--logo-mid) 55%, var(--logo-lo) 80%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: sv-sheen 6s linear infinite;
+}
+.sv-tick { animation: sv-tick 30s linear infinite; transform-origin: left; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sv-dial, .sv-bolt, .sv-door, .sv-card-in, .sv-glow, .sv-rise, .sv-sheen, .sv-tick { animation: none !important; }
+  .sv-bolt { transform: translateY(7px); }
+  .sv-door { transform: perspective(1200px) rotateY(-24deg) translateX(-8%); }
 }

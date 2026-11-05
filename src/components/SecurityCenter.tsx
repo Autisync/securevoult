@@ -252,7 +252,7 @@ export function SecurityCenter({ onEditEntry }: SecurityCenterProps) {
             { icon: RefreshCw,     label: 'Reused',     count: reusedCount, color: 'text-orange-400', bg: 'bg-orange-500/10' },
             { icon: AlertTriangle, label: 'Stale',      count: staleCount,  color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
             { icon: Globe,         label: 'Missing URL',count: noUrlCount,  color: 'text-primary',   bg: 'bg-primary/10' },
-            { icon: ShieldAlert,   label: 'No 2FA', count: no2faCount,  color: 'text-violet-400', bg: 'bg-violet-500/10' },
+            { icon: ShieldAlert,   label: 'No 2FA', count: no2faCount,  color: 'text-amber-300', bg: 'bg-amber-500/10' },
           ].map(({ icon: Icon, label, count, color, bg }) => (
             <div key={label} className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
               <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center flex-shrink-0`}>

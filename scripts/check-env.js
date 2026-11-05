@@ -168,7 +168,7 @@ reportOptional('HIBP_API_KEY', get('HIBP_API_KEY'),
 // App URL
 console.log('\n-- App URL --');
 report('NEXT_PUBLIC_APP_URL', get('NEXT_PUBLIC_APP_URL'),
-       'Set to http://localhost:3000 for dev, https://app.securevoult.co.uk for production');
+       'Set to http://localhost:3000 for dev, https://vault.autisync.com for production');
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 

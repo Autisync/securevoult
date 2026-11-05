@@ -45,7 +45,7 @@ class DatabaseService {
     // In the extension window.location.origin is chrome-extension://[id]; use the app URL.
     const isExtension = typeof chrome !== 'undefined' && typeof chrome.runtime !== 'undefined' && !!chrome.runtime.id;
     this.baseUrl = isExtension
-      ? (process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.securevoult.co.uk')
+      ? (process.env.NEXT_PUBLIC_APP_URL ?? 'https://vault.autisync.com')
       : (typeof window !== 'undefined' ? window.location.origin : '');
   }
 
@@ -95,6 +95,38 @@ class DatabaseService {
     if (res.status >= 500) throw new OfflineError(res.status);
     if (!res.ok) throw new Error(data.message ?? 'Could not save your vault');
     return { ok: true, version: Number(data.version) };
+  }
+
+  // ── Encrypted attachments ──
+  async uploadFile(id: string, encrypted: Uint8Array): Promise<void> {
+    const res = await this.request('/vault/files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-File-Id': id },
+      body: encrypted as unknown as BodyInit,
+    });
+    if (res.status >= 500) throw new OfflineError(res.status);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message ?? 'Could not upload the file');
+    }
+  }
+
+  async downloadFile(id: string): Promise<Uint8Array> {
+    const res = await this.request(`/vault/files/${encodeURIComponent(id)}`, { method: 'GET' });
+    if (res.status >= 500) throw new OfflineError(res.status);
+    if (res.status === 404) throw new Error('This file is no longer on the server');
+    if (!res.ok) throw new Error('Could not download the file');
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  async deleteFile(id: string): Promise<void> {
+    await this.request(`/vault/files/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => undefined);
+  }
+
+  async fileUsage(): Promise<{ usedBytes: number; limitBytes: number; maxFileBytes: number } | null> {
+    const res = await this.request('/vault/files', { method: 'GET' }).catch(() => null);
+    if (!res?.ok) return null;
+    return res.json();
   }
 }
 

@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Shield, ChevronRight, ArrowLeft } from 'lucide-react';
+import { ChevronRight, ArrowLeft, Mail } from 'lucide-react';
+import { Logo, LogoMark } from '@/components/Logo';
+import { LEGAL } from '@/lib/legal';
 import { useEffect, useRef, useState } from 'react';
 
 interface LegalSection {
@@ -79,12 +81,7 @@ export function LegalLayout({
       {/* Nav */}
       <nav className={`sticky top-0 z-50 border-b transition-all duration-300 ${navScrolled ? 'border-border/60 bg-background/95 backdrop-blur-xl shadow-lg shadow-black/10' : 'border-border/30 bg-background/70 backdrop-blur-md'}`}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <Shield className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold tracking-tight">SecureVoult</span>
-          </Link>
+          <Link href="/" className="hover:opacity-80 transition-opacity" aria-label="SecureVoult home"><Logo size="sm" /></Link>
           <div className="hidden md:flex items-center gap-5 text-xs text-muted-foreground">
             <Link href="/privacy"   className="hover:text-foreground transition-colors">Privacy</Link>
             <Link href="/terms"     className="hover:text-foreground transition-colors">Terms</Link>
@@ -101,14 +98,12 @@ export function LegalLayout({
 
       {/* Hero */}
       <div className="relative py-20 px-6 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
-          style={{ backgroundImage: 'linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/6 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-[360px] pointer-events-none bg-[radial-gradient(50%_60%_at_50%_0%,hsl(var(--primary)/.12),transparent)]" />
         <div className="relative max-w-3xl mx-auto text-center animate-fade-up">
           <div className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border mb-5 ${badgeColor}`}>
             {badge}
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">{title}</h1>
+          <h1 className="font-display text-4xl md:text-6xl font-normal tracking-[-0.02em] mb-4">{title}</h1>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">{subtitle}</p>
           <div className="flex items-center justify-center gap-6 mt-6 text-xs text-muted-foreground/60">
             <span>Effective: <span className="text-muted-foreground font-medium">{effectiveDate}</span></span>
@@ -147,7 +142,7 @@ export function LegalLayout({
         <article className="min-w-0">
           <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 mb-10 animate-fade-up">
             <p className="text-xs text-amber-400/80 leading-relaxed">
-              <strong className="text-amber-400">Plain language notice:</strong> We have written these documents to be readable, not just legally complete. If anything is unclear, email us at <a href="mailto:legal@securevoult.co.uk" className="underline underline-offset-2 hover:opacity-80">legal@securevoult.co.uk</a>.
+              <strong className="text-amber-400">In plain English:</strong> we have tried to make this readable rather than just legally complete. If anything is unclear, email <strong>{LEGAL.email}</strong>.
             </p>
           </div>
 
@@ -171,19 +166,14 @@ export function LegalLayout({
           {/* Contact card */}
           <Reveal>
             <div className="bg-primary/5 border border-primary/20 rounded-2xl p-8 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-6 h-6 text-primary" />
-              </div>
+              <div className="flex justify-center mb-4"><LogoMark px={44} tile /></div>
               <h3 className="font-bold text-lg mb-2">Questions about this document?</h3>
               <p className="text-sm text-muted-foreground mb-5 max-w-md mx-auto">
-                Our team is happy to answer any questions. We respond to all legal enquiries within 5 business days.
+                Email us and a person at Autisync will reply. Requests about your data are answered within one month.
               </p>
               <div className="flex items-center justify-center gap-4 flex-wrap text-xs">
-                <a href="mailto:legal@securevoult.co.uk" className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors font-medium">
-                  legal@securevoult.co.uk
-                </a>
-                <a href="mailto:privacy@securevoult.co.uk" className="px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
-                  privacy@securevoult.co.uk
+                <a href={`mailto:${LEGAL.email}`} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium">
+                  <Mail className="w-3.5 h-3.5" />{LEGAL.email}
                 </a>
               </div>
             </div>
@@ -194,7 +184,7 @@ export function LegalLayout({
       {/* Mini footer */}
       <footer className="border-t border-border/40 py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground/50">© {new Date().getFullYear()} SecureVoult Ltd.</p>
+          <p className="text-xs text-muted-foreground/50">© {new Date().getFullYear()} {LEGAL.company}. {LEGAL.product} is a product of {LEGAL.company}.</p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground/50">
             {[
               { label: 'Privacy Policy', href: '/privacy' },
@@ -202,6 +192,7 @@ export function LegalLayout({
               { label: 'Cookies',        href: '/cookies' },
               { label: 'DPA',            href: '/dpa' },
               { label: 'Security',       href: '/security' },
+              { label: 'Support',        href: '/support' },
             ].map(({ label, href }) => (
               <Link key={label} href={href} className="hover:text-muted-foreground transition-colors">{label}</Link>
             ))}

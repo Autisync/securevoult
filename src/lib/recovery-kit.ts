@@ -28,8 +28,8 @@ export function generateRecoveryKit({ email, displayName, recoveryKey, appUrl }:
   @page { margin: 18mm; }
   * { box-sizing: border-box; }
   body { font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #0f172a; max-width: 720px; margin: 0 auto; padding: 40px 28px; background: #fff; }
-  .brand { font-weight: 800; letter-spacing: -.3px; font-size: 18px; }
-  .brand span { color: #B28228; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -.3px; font-size: 18px; }
+  .brand span { color: #B2862F; }
   h1 { font-size: 28px; margin: 18px 0 4px; letter-spacing: -.5px; }
   .sub { color: #475569; margin: 0 0 24px; }
   .who { display: grid; grid-template-columns: 160px 1fr; gap: 6px 16px; font-size: 14px; margin-bottom: 26px; }
@@ -48,7 +48,7 @@ export function generateRecoveryKit({ email, displayName, recoveryKey, appUrl }:
 </style>
 </head>
 <body>
-  <div class="brand">Secure<span>Voult</span></div>
+  <div class="brand"><svg width="26" height="28" viewBox="8 6 48 52" aria-hidden="true"><path d="M22 26.5V20a10 10 0 0 1 20 0v6.5" fill="none" stroke="#B2862F" stroke-width="5.2" stroke-linecap="round"/><path fill-rule="evenodd" d="M13.5 26.5h37a1.6 1.6 0 0 1 1.35 2.45L33.4 56.1a1.65 1.65 0 0 1-2.8 0L12.15 28.95a1.6 1.6 0 0 1 1.35-2.45zM25 32.5h14L32 44.2z" fill="#B2862F"/></svg>Secure<span>Voult</span></div>
   <h1>Recovery Kit</h1>
   <p class="sub">Keep this somewhere safe and offline: printed in a drawer, or with your important papers.</p>
 

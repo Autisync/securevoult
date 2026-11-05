@@ -51,6 +51,17 @@ export interface WifiDetails {
   security?: string;
 }
 
+/** A file kept with an item. The bytes are stored encrypted on the server; only this description lives in the vault. */
+export interface Attachment {
+  id: string;
+  name: string;
+  /** Bytes before encryption. */
+  size: number;
+  /** MIME type, e.g. application/pdf */
+  type: string;
+  addedAt: string;
+}
+
 export interface PasswordEntry {
   id: string;
   type: VaultItemType;
@@ -69,6 +80,7 @@ export interface PasswordEntry {
   bank?: BankDetails;
   wifi?: WifiDetails;
   fields?: CustomField[];
+  attachments?: Attachment[];
   /** Previous passwords, newest first (kept 10). */
   passwordHistory?: { password: string; changedAt: string }[];
   category: string;

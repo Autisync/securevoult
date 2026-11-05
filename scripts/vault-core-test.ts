@@ -9,6 +9,7 @@ import { webcrypto } from 'node:crypto';
 import {
   createVaultKey, unlockVaultKey, rewrapVaultKey, encryptVaultJson, decryptWithKey, decryptWithPassword,
   headerOf, WrongPasswordError, createVaultKeyWithRecovery, createRecoveryKey, recoverVaultKey, newRecoveryKey,
+  encryptFile, decryptFile,
 } from '../src/lib/vault-crypto.ts';
 import { parseTotp, hotp, totpNow, base32Decode } from '../src/lib/totp.ts';
 import { mergeVaults } from '../src/lib/vault-merge.ts';
@@ -170,6 +171,23 @@ console.log('importing');
   ok(b.source === 'Bitwarden' && b.items[0].totp?.startsWith('otpauth') && b.items[0].isFavorite, 'Bitwarden with 2FA secret');
   const chrome = importFromCsv(parseCsv('name,url,username,password,note\nexample.com,https://example.com/login,u,p,'), []);
   ok(chrome.source === 'Chrome' && chrome.items[0].url === 'https://example.com/login', 'Chrome passwords export');
+}
+
+console.log('file attachments');
+{
+  const vk = await createVaultKey('correct horse', { ...fast });
+  const other = await createVaultKey('correct horse', { ...fast, salt: btoa('fedcba9876543210') });
+  const plain = new TextEncoder().encode('passport scan bytes '.repeat(1000));
+  const enc = await encryptFile(vk, 'file-aaaaaaaa', plain);
+  ok(enc.length === plain.length + 28 && !new TextDecoder().decode(enc).includes('passport'), 'encrypted, nothing readable');
+  const back = await decryptFile(vk, 'file-aaaaaaaa', enc);
+  ok(back.length === plain.length && back.every((b, i) => b === plain[i]), 'decrypts back exactly');
+  ok(await decryptFile(vk, 'file-bbbbbbbb', enc).then(() => false, () => true), 'refused under another file id (server swap)');
+  ok(await decryptFile(other, 'file-aaaaaaaa', enc).then(() => false, () => true), 'refused with another vault key');
+  const bad = enc.slice(); bad[40] ^= 1;
+  ok(await decryptFile(vk, 'file-aaaaaaaa', bad).then(() => false, () => true), 'tampering detected');
+  const a = await encryptFile(vk, 'file-aaaaaaaa', plain);
+  ok(a.slice(0, 12).some((b, i) => b !== enc[i]), 'fresh nonce each time');
 }
 
 console.log(failures ? `\n${failures} FAILED` : '\nall passed');

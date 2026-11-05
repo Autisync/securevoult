@@ -45,12 +45,12 @@ function loadEnv() {
 }
 
 const envVars = loadEnv();
-const appUrl = envVars['NEXT_PUBLIC_APP_URL'] ?? 'https://app.securevoult.co.uk';
+const appUrl = envVars['NEXT_PUBLIC_APP_URL'] ?? 'https://vault.autisync.com';
 const appOrigin = (() => {
   try {
     return new URL(appUrl).origin;
   } catch {
-    return 'https://app.securevoult.co.uk';
+    return 'https://vault.autisync.com';
   }
 })();
 

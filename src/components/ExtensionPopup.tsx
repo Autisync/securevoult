@@ -88,7 +88,7 @@ export function ExtensionPopup() {
   }, [vaultError]);
 
   const openFullApp = () => {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.securevoult.co.uk';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://vault.autisync.com';
     if (typeof chrome !== 'undefined' && chrome.tabs) {
       chrome.tabs.create({ url: appUrl });
     } else {

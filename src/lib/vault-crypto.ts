@@ -263,6 +263,25 @@ export async function encryptVaultJson(json: string, vk: VaultKey): Promise<stri
   return JSON.stringify(blob);
 }
 
+// ── File attachments ───────────────────────────────────────────────────────
+// Encrypted with the vault key before upload; the file id is bound in as AAD
+// so the server can't swap one file for another. Layout: iv(12) || ciphertext.
+
+const fileAad = (id: string) => enc.encode(`securevoult:v2:file:${id}`);
+
+export async function encryptFile(vk: VaultKey, id: string, plain: Uint8Array): Promise<Uint8Array> {
+  const iv = random(12);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: fileAad(id) }, vk.key, plain));
+  const out = new Uint8Array(12 + ct.length);
+  out.set(iv); out.set(ct, 12);
+  return out;
+}
+
+export async function decryptFile(vk: VaultKey, id: string, data: Uint8Array): Promise<Uint8Array> {
+  if (data.length < 28) throw new Error('This file is damaged');
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: data.slice(0, 12), additionalData: fileAad(id) }, vk.key, data.slice(12)));
+}
+
 export function parseBlob(blob: string | object): { v: 1; data: string; salt: string; iv: string } | EncryptedVaultV2 {
   const o = (typeof blob === 'string' ? JSON.parse(blob) : blob) as Record<string, unknown>;
   if (o && o.v === 2) return o as unknown as EncryptedVaultV2;

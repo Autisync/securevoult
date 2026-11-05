@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { AttachmentList } from '@/components/AttachmentList';
 import { useClipboard } from '@/hooks/useClipboard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +15,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import {
   X, Copy, Check, Eye, EyeOff, Edit, Trash2, ExternalLink, Star,
   Key, StickyNote, CreditCard, UserCircle, Wifi, Globe, Calendar,
-  RefreshCw, Tag, Shield, AlertTriangle, Landmark
+  RefreshCw, Tag, Shield, AlertTriangle, Landmark, Maximize2, Minimize2
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -24,7 +25,7 @@ import {
 
 const TYPE_META: Record<VaultItemType, { icon: React.ElementType; label: string; color: string; bg: string }> = {
   login:    { icon: Key,        label: 'Login',        color: 'text-primary',   bg: 'bg-primary/10' },
-  note:     { icon: StickyNote, label: 'Secure note',  color: 'text-violet-400', bg: 'bg-violet-500/10' },
+  note:     { icon: StickyNote, label: 'Secure note',  color: 'text-amber-300', bg: 'bg-amber-500/10' },
   card:     { icon: CreditCard, label: 'Payment card', color: 'text-green-400',  bg: 'bg-green-500/10' },
   identity: { icon: UserCircle, label: 'Identity',     color: 'text-orange-400', bg: 'bg-orange-500/10' },
   wifi:     { icon: Wifi,       label: 'Wi-Fi',        color: 'text-cyan-400',   bg: 'bg-cyan-500/10' },
@@ -51,6 +52,18 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
   const [showHistory, setShowHistory] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [faviconError, setFaviconError] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  // Esc shrinks the large view first, then closes.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || deleteOpen) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      if (expanded) setExpanded(false); else onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [expanded, deleteOpen, onClose]);
   const { copied, copy: clipboardCopy } = useClipboard();
   const { updateEntry, deleteEntry } = useVault();
   const { toast } = useToast();
@@ -146,7 +159,10 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
 
   return (
     <>
-      <div className="fixed inset-0 z-40 md:static md:inset-auto md:z-auto w-full md:w-96 flex-shrink-0 md:border-l border-border flex flex-col bg-card overflow-hidden animate-in slide-in-from-right-8 fade-in duration-200">
+      {expanded && <div className="hidden md:block fixed inset-0 z-40 bg-background/70 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setExpanded(false)} />}
+      <div className={expanded
+        ? 'fixed inset-0 md:inset-6 lg:inset-y-8 lg:inset-x-[max(2rem,calc(50%-34rem))] z-50 flex flex-col bg-card md:border md:border-border md:rounded-2xl shadow-2xl shadow-black/40 overflow-hidden animate-in fade-in zoom-in-95 duration-200'
+        : 'fixed inset-0 z-40 md:static md:inset-auto md:z-auto w-full md:w-96 flex-shrink-0 md:border-l border-border flex flex-col bg-card overflow-hidden animate-in slide-in-from-right-8 fade-in duration-200'}>
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border/50">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -171,14 +187,18 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
             <button onClick={toggleFavorite} className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title={entry.isFavorite ? 'Remove favorite' : 'Add favorite'}>
               <Star className={`w-4 h-4 ${entry.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
             </button>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
+            <button onClick={() => setExpanded((v) => !v)} className="hidden md:flex w-8 h-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title={expanded ? 'Smaller view' : 'Open full view'}>
+              {expanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+            <button onClick={onClose} aria-label="Close" className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className={`flex-1 overflow-y-auto p-4 ${expanded ? 'md:p-8 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:gap-8 md:items-start' : ''}`}>
+         <div className="space-y-4 min-w-0">
           {/* Username */}
           {plainUser && (
             <Field label="Username" value={plainUser} copyLabel="Username" />
@@ -298,6 +318,11 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
             </div>
           )}
 
+          {!expanded && <AttachmentList entry={entry} />}
+         </div>
+         <div className={`space-y-4 min-w-0 ${expanded ? 'mt-4 md:mt-0' : 'mt-4'}`}>
+          {expanded && <AttachmentList entry={entry} large />}
+
           {/* Notes */}
           {entry.notes && (
             <div className="space-y-1.5">
@@ -378,14 +403,15 @@ export function EntryDetailPanel({ entry, onClose, onEdit }: EntryDetailPanelPro
               <span>No URL set — autofill won't work for this entry. <button onClick={() => onEdit(entry)} className="underline hover:no-underline">Add one</button></span>
             </div>
           )}
+         </div>
         </div>
 
         {/* Footer actions */}
-        <div className="flex-shrink-0 p-4 border-t border-border/50 space-y-2">
-          <Button className="w-full h-9 bg-primary hover:bg-primary/90 text-sm" onClick={() => onEdit(entry)}>
+        <div className={`flex-shrink-0 p-4 border-t border-border/50 gap-2 ${expanded ? 'flex justify-end' : 'space-y-2'}`}>
+          <Button className={`${expanded ? 'w-auto px-5' : 'w-full'} h-9 bg-primary hover:bg-primary/90 text-sm`} onClick={() => onEdit(entry)}>
             <Edit className="w-3.5 h-3.5 mr-2" />Edit entry
           </Button>
-          <Button variant="outline" className="w-full h-9 text-sm border-border/60 hover:border-destructive/50 hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+          <Button variant="outline" className={`${expanded ? 'w-auto px-5' : 'w-full'} h-9 text-sm border-border/60 hover:border-destructive/50 hover:text-destructive`} onClick={() => setDeleteOpen(true)}>
             <Trash2 className="w-3.5 h-3.5 mr-2" />Delete entry
           </Button>
         </div>

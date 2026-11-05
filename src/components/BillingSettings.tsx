@@ -173,7 +173,7 @@ export function BillingSettings({
               onClick={() =>
                 toast({
                   title: 'Billing portal',
-                  description: 'Stripe billing portal coming soon. Contact support@securevoult.co.uk to manage your subscription.',
+                  description: 'Stripe billing portal coming soon. Email admin@autisync.com to change your subscription.',
                 })
               }
             >

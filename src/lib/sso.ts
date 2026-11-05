@@ -31,7 +31,7 @@ export interface SSOConfig {
    *   entryPoint       — IdP SSO URL (e.g. https://idp.example.com/sso/saml)
    *   issuer           — SP entity ID (your app URL)
    *   cert             — IdP signing certificate (PEM string, no headers)
-   *   callbackUrl      — ACS URL: https://app.securevoult.co.uk/api/sso/callback
+   *   callbackUrl      — ACS URL: https://vault.autisync.com/api/sso/callback
    */
   saml?: {
     entryPoint: string;
@@ -45,7 +45,7 @@ export interface SSOConfig {
    *   discoveryUrl     — .well-known/openid-configuration endpoint
    *   clientId
    *   clientSecret     — store encrypted; never expose to client
-   *   redirectUri      — https://app.securevoult.co.uk/api/sso/callback
+   *   redirectUri      — https://vault.autisync.com/api/sso/callback
    */
   oidc?: {
     discoveryUrl: string;

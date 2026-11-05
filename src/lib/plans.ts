@@ -36,6 +36,7 @@ export function getYearlyDiscount(plan: PlanId): number {
 
 export interface PlanLimits {
   maxEntries: number;          // -1 = unlimited
+  fileStorageMB: number;       // encrypted attachments; -1 = unlimited
   maxDevices: number;          // -1 = unlimited
   maxPasskeys: number;         // -1 = unlimited; 0 = passkeys not allowed
   maxCompanyUsers: number;     // -1 = unlimited; 0 = no company access
@@ -63,6 +64,7 @@ export interface PlanLimits {
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   free: {
     maxEntries:            50,
+    fileStorageMB:         100,
     maxDevices:            2,
     maxPasskeys:           0,
     maxCompanyUsers:       0,
@@ -88,6 +90,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   pro: {
     maxEntries:            -1,
+    fileStorageMB:         1024,
     maxDevices:            -1,
     maxPasskeys:           5,
     maxCompanyUsers:       0,
@@ -113,6 +116,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   company: {
     maxEntries:            -1,
+    fileStorageMB:         5120,
     maxDevices:            -1,
     maxPasskeys:           -1,
     maxCompanyUsers:       -1,
@@ -138,6 +142,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   enterprise: {
     maxEntries:            -1,
+    fileStorageMB:         -1,
     maxDevices:            -1,
     maxPasskeys:           -1,
     maxCompanyUsers:       -1,
@@ -193,7 +198,7 @@ export const PLAN_META: Record<PlanId, PlanMeta> = {
     name: 'Pro',
     tagline: 'For power users who need everything',
     badge: 'Most popular',
-    color: 'text-blue-400',
+    color: 'text-primary',
     features: [
       'Unlimited vault entries',
       'Full exposure intelligence',
@@ -209,7 +214,7 @@ export const PLAN_META: Record<PlanId, PlanMeta> = {
     id: 'company',
     name: 'Company',
     tagline: 'For teams that take security seriously',
-    color: 'text-violet-400',
+    color: 'text-foreground',
     features: [
       'Everything in Pro, per user',
       'Company admin dashboard',
@@ -225,7 +230,7 @@ export const PLAN_META: Record<PlanId, PlanMeta> = {
     id: 'enterprise',
     name: 'Enterprise',
     tagline: 'For large organisations with custom needs',
-    color: 'text-amber-400',
+    color: 'text-amber-300',
     features: [
       'Everything in Company',
       'SSO integration (SAML/OIDC)',

@@ -1,17 +1,17 @@
 'use client';
 
 import { createContext, useContext, useReducer, useEffect, useRef, useCallback, ReactNode } from 'react';
-import { VaultData, PasswordEntry, SortBy } from '@/types/vault';
+import { VaultData, PasswordEntry, SortBy, Attachment } from '@/types/vault';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   VaultService, NoVaultError, openVault, createVault as createNewVault, saveVault, pullVault,
   vaultExists, exportBackup, readBackup, openWithKey, addRecoveryKit, recoverVault as recoverWithKit,
-  MfaRequiredError, type NewEntry,
+  MfaRequiredError, databaseAPI, type NewEntry,
 } from '@/lib/vault';
 import { mfaApi, setMfaToken } from '@/lib/mfa-client';
 import { unlockWithDevice as deviceKey } from '@/lib/biometric';
 import { AuthService } from '@/lib/auth';
-import { rewrapVaultKey, exportRawKey, importRawKey, type KeyHeader, type VaultKey } from '@/lib/vault-crypto';
+import { rewrapVaultKey, encryptFile, decryptFile, toB64, exportRawKey, importRawKey, type KeyHeader, type VaultKey } from '@/lib/vault-crypto';
 import { getVaultPreference } from '@/hooks/useVaultPreferences';
 import { mergeVaults } from '@/lib/vault-merge';
 import { parseCsv, importFromCsv } from '@/lib/importers';
@@ -131,6 +131,11 @@ interface VaultContextType extends VaultState {
   unlockWithDevice: () => Promise<void>;
   /** The open vault's key header (for setting up device unlock). */
   getKeyHeader: () => KeyHeader | null;
+  /** Encrypts a file in this browser, uploads it and lists it on the item. */
+  addAttachment: (entryId: string, file: File) => Promise<Attachment>;
+  /** Downloads and decrypts a file. */
+  openAttachment: (att: Attachment) => Promise<Blob>;
+  removeAttachment: (entryId: string, attachmentId: string) => Promise<void>;
 }
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -362,7 +367,40 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
   const addEntry = (entry: NewEntry) => commit((v) => VaultService.addEntry(v, entry));
   const updateEntry = (entryId: string, updates: Partial<Omit<PasswordEntry, 'id' | 'createdAt'>>) =>
     commit((v) => VaultService.updateEntry(v, entryId, updates));
-  const deleteEntry = (entryId: string) => commit((v) => VaultService.deleteEntry(v, entryId));
+  const deleteEntry = async (entryId: string) => {
+    const files = vaultRef.current?.entries.find((e) => e.id === entryId)?.attachments ?? [];
+    await commit((v) => VaultService.deleteEntry(v, entryId));
+    for (const f of files) void databaseAPI.deleteFile(f.id);
+  };
+
+  const MAX_FILE = 25 * 1024 * 1024;
+  const addAttachment = async (entryId: string, file: File): Promise<Attachment> => {
+    if (!keyRef.current || !vaultRef.current) throw new Error('Unlock the vault first');
+    if (file.size > MAX_FILE) throw new Error(`${file.name} is larger than 25 MB`);
+    const entry = vaultRef.current.entries.find((e) => e.id === entryId);
+    if (!entry) throw new Error('Item not found');
+    const id = toB64(crypto.getRandomValues(new Uint8Array(18))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const encrypted = await encryptFile(keyRef.current, id, new Uint8Array(await file.arrayBuffer()));
+    await databaseAPI.uploadFile(id, encrypted);
+    const att: Attachment = { id, name: file.name.slice(0, 200), size: file.size, type: file.type || 'application/octet-stream', addedAt: new Date().toISOString() };
+    await commit((v) => VaultService.updateEntry(v, entryId, {
+      attachments: [...(v.entries.find((e) => e.id === entryId)?.attachments ?? []), att],
+    }));
+    return att;
+  };
+
+  const openAttachment = async (att: Attachment): Promise<Blob> => {
+    if (!keyRef.current) throw new Error('Unlock the vault first');
+    const plain = await decryptFile(keyRef.current, att.id, await databaseAPI.downloadFile(att.id));
+    return new Blob([plain as BlobPart], { type: att.type || 'application/octet-stream' });
+  };
+
+  const removeAttachment = async (entryId: string, attachmentId: string) => {
+    await commit((v) => VaultService.updateEntry(v, entryId, {
+      attachments: (v.entries.find((e) => e.id === entryId)?.attachments ?? []).filter((a) => a.id !== attachmentId),
+    }));
+    void databaseAPI.deleteFile(attachmentId);
+  };
 
   const refresh = useCallback(async () => {
     if (!vaultRef.current || !keyRef.current) return;
@@ -486,6 +524,7 @@ export function VaultProvider({ children, session }: { children: ReactNode; sess
     dismissRecoveryKey: () => dispatch({ type: 'SET_RECOVERY', payload: { key: null } }),
     unlockWithDevice,
     getKeyHeader: () => keyRef.current?.header ?? null,
+    addAttachment, openAttachment, removeAttachment,
     vaultConflict: null,
     dismissConflict: () => {},
   };
