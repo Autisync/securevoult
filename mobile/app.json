@@ -2,75 +2,51 @@
   "expo": {
     "name": "SecureVoult",
     "slug": "secure-password-manager",
+    "owner": "autisyncs-organization",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "securevoult",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#080d1a"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "backgroundColor": "#111212",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.securevoult.app",
+      "bundleIdentifier": "com.autisync.securevoult",
       "buildNumber": "1",
       "infoPlist": {
         "NSFaceIDUsageDescription": "SecureVoult uses Face ID to unlock your vault.",
-        "NSCameraUsageDescription": "Required for QR code scanning when pairing devices.",
-        "UIBackgroundModes": ["fetch"]
-      },
-      "usesAppleSignIn": false,
-      "config": {
-        "usesNonExemptEncryption": false
+        "NSCameraUsageDescription": "SecureVoult uses the camera to read 2FA QR codes. Nothing is recorded.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
+      "package": "com.autisync.securevoult",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#080d1a"
+        "backgroundImage": "./assets/adaptive-bg.png",
+        "monochromeImage": "./assets/adaptive-mono.png",
+        "backgroundColor": "#121211"
       },
-      "package": "com.autisyncsorganization.securepasswordmanager",
-      "versionCode": 1,
-      "permissions": [
-        "USE_BIOMETRIC",
-        "USE_FINGERPRINT",
-        "INTERNET",
-        "RECEIVE_BOOT_COMPLETED"
-      ],
       "allowBackup": false,
-      "blockedPermissions": ["RECORD_AUDIO"]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "permissions": ["android.permission.USE_BIOMETRIC", "android.permission.CAMERA"],
+      "blockedPermissions": ["android.permission.RECORD_AUDIO", "android.permission.READ_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE", "android.permission.SYSTEM_ALERT_WINDOW"],
+      "predictiveBackGestureEnabled": false
     },
     "plugins": [
+      "expo-router",
       "expo-secure-store",
-      "expo-local-authentication",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 34,
-            "targetSdkVersion": 34,
-            "minSdkVersion": 29
-          },
-          "ios": {
-            "deploymentTarget": "16.0"
-          }
-        }
-      ]
+      "react-native-libsodium",
+      ["expo-local-authentication", { "faceIDPermission": "SecureVoult uses Face ID to unlock your vault." }],
+      ["expo-camera", { "cameraPermission": "SecureVoult uses the camera to read 2FA QR codes. Nothing is recorded.", "recordAudioAndroid": false }],
+      ["expo-splash-screen", { "image": "./assets/splash.png", "imageWidth": 120, "resizeMode": "contain", "backgroundColor": "#111212" }],
+      ["expo-build-properties", { "android": { "minSdkVersion": 30 }, "ios": { "deploymentTarget": "16.4" } }]
     ],
+    "experiments": { "typedRoutes": false },
     "extra": {
-      "eas": {
-        "projectId": "5ba33fee-86af-48ec-8c7b-5f14957ef9f4"
-      }
-    },
-    "owner": "autisyncs-organization"
+      "apiBase": "https://vault.autisync.com",
+      "router": {},
+      "eas": { "projectId": "5ba33fee-86af-48ec-8c7b-5f14957ef9f4" }
+    }
   }
 }

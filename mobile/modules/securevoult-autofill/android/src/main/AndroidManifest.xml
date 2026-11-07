@@ -1,0 +1,23 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!-- Android calls this when another app or Chrome shows a login form. -->
+    <service
+      android:name="com.autisync.securevoult.autofill.SecureVoultAutofillService"
+      android:label="SecureVoult"
+      android:exported="true"
+      android:permission="android.permission.BIND_AUTOFILL_SERVICE">
+      <intent-filter>
+        <action android:name="android.service.autofill.AutofillService" />
+      </intent-filter>
+      <meta-data android:name="android.autofill" android:resource="@xml/sv_autofill_service" />
+    </service>
+
+    <!-- The fingerprint / screen-lock check before any login is handed over. -->
+    <activity
+      android:name="com.autisync.securevoult.autofill.AutofillAuthActivity"
+      android:exported="false"
+      android:excludeFromRecents="true"
+      android:taskAffinity=""
+      android:theme="@style/SvAutofillTranslucent" />
+  </application>
+</manifest>

@@ -1,0 +1,6 @@
+{
+  "name": "securevoult-autofill",
+  "version": "1.0.0",
+  "description": "Android autofill service for SecureVoult (local Expo module)",
+  "private": true
+}

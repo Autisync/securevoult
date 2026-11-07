@@ -22,7 +22,7 @@
 
 | Phase | What | Needs |
 |---|---|---|
-| 2 | **Android app with real autofill** (fills inside other apps and Chrome on the phone), fingerprint unlock | Native Android module (Kotlin AutofillService) in the Expo app; your Android phone to test |
+| 2 | **Android app with real autofill** (fills inside other apps and Chrome on the phone), fingerprint unlock. *Built in `mobile/` (Nov 2026): first EAS build and test on a phone next.* | Your Android phone to test |
 | 3 | **Passkeys**: save and use passkeys in Chrome (the extension answers the site's WebAuthn request) | Extension work; sites that support passkeys to test |
 | 4 | **iPhone app** with AutoFill (Credential Provider extension) and Face ID | A Mac with Xcode, Apple developer account |
 | 5 | **Windows app**: tray icon, global shortcut, Windows Hello unlock (Electron shell already in `desktop/`) | Windows to test |

@@ -1,31 +1,53 @@
 {
   "name": "securevoult-mobile",
   "version": "1.0.0",
-  "main": "App.js",
+  "main": "expo-router/entry",
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "@noble/ciphers": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~58.0.23",
+    "expo-build-properties": "~58.0.12",
+    "expo-camera": "~58.0.14",
+    "expo-clipboard": "~58.0.4",
+    "expo-constants": "~58.0.15",
+    "expo-crypto": "~58.0.7",
+    "expo-file-system": "~58.0.13",
+    "expo-haptics": "~58.0.7",
+    "expo-linking": "~58.0.16",
+    "expo-local-authentication": "~58.0.2",
+    "expo-router": "~58.0.30",
+    "expo-screen-capture": "~58.0.6",
+    "expo-secure-store": "~58.0.2",
+    "expo-splash-screen": "~58.0.13",
+    "expo-status-bar": "~58.0.4",
+    "expo-system-ui": "~58.0.7",
+    "firebase": "^13.2.0",
+    "react": "19.3.0",
+    "react-dom": "^19.3.0",
+    "react-native": "0.88.1",
+    "react-native-libsodium": "^1.7.0",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1",
+    "react-native-svg": "15.16.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "hash-wasm": "^4.12.0",
+    "libsodium-wrappers-sumo": "^0.8.4",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3"
+  },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "build": "eas build --platform all --profile preview",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "test:compat": "tsx scripts/compat-test.mts",
     "build:android": "eas build --platform android --profile preview",
-    "build:ios": "eas build --platform ios --profile preview",
-    "build:prod": "eas build --platform all --profile production",
-    "submit": "eas submit --platform all"
-  },
-  "dependencies": {
-    "date-fns": "^4.1.0",
-    "expo": "~51.0.0",
-    "expo-build-properties": "~0.12.3",
-    "expo-local-authentication": "~14.0.1",
-    "expo-secure-store": "~13.0.2",
-    "expo-status-bar": "~1.12.1",
-    "firebase": "^12.12.1",
-    "react": "18.2.0",
-    "react-native": "0.74.5"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.20.0",
-    "babel-plugin-module-resolver": "^5.0.3"
+    "build:ios": "eas build --platform ios --profile preview"
   },
   "private": true
 }
