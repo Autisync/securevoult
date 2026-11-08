@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="sv_row_bg">#1E1F1F</color>
+  <color name="sv_text">#F3EFE7</color>
+  <color name="sv_text_dim">#B3ADA3</color>
+  <color name="sv_gold">#D9B460</color>
+</resources>

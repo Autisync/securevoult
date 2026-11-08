@@ -35,6 +35,8 @@ export interface AutofillLogin {
   password: string;
   /** Base domains this login fills on, e.g. "google.com". */
   domains: string[];
+  /** The exact addresses it was saved for, e.g. "calls.autisync.com", shown on the suggestion. */
+  hosts: string[];
   /** Android package names, from "androidapp://com.example" addresses. */
   apps: string[];
 }
@@ -50,12 +52,13 @@ export function toAutofillLogins(entries: PasswordEntry[]): AutofillLogin[] {
     .map((e) => {
       const addresses = [e.url, ...(e.urls ?? [])].filter((u): u is string => !!u && !!u.trim());
       const apps = addresses.filter((u) => /^androidapp:\/\//i.test(u)).map((u) => u.replace(/^androidapp:\/\//i, '').trim());
-      const domains = [...new Set(addresses
+      const hosts = [...new Set(addresses
         .filter((u) => !/^androidapp:\/\//i.test(u))
         .map(hostOf)
         .filter((h): h is string => !!h && h.includes('.'))
-        .map(baseDomain))];
-      return { id: e.id, name: e.website || domains[0] || 'Login', username: e.username ?? '', password: e.password ?? '', domains, apps };
+        .map((h) => h.replace(/^www\./, '')))];
+      const domains = [...new Set(hosts.map(baseDomain))];
+      return { id: e.id, name: e.website || hosts[0] || 'Login', username: e.username ?? '', password: e.password ?? '', domains, hosts, apps };
     });
 }
 

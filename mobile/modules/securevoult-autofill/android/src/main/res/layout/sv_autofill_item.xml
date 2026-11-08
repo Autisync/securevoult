@@ -4,6 +4,8 @@
   android:layout_height="wrap_content"
   android:orientation="horizontal"
   android:gravity="center_vertical"
+  android:background="@color/sv_row_bg"
+  android:minHeight="56dp"
   android:paddingStart="16dp"
   android:paddingEnd="16dp"
   android:paddingTop="10dp"
@@ -28,6 +30,7 @@
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:textSize="15sp"
+      android:textStyle="bold"
       android:textColor="@color/sv_text"
       android:maxLines="1"
       android:ellipsize="end" />
@@ -39,6 +42,6 @@
       android:textSize="13sp"
       android:textColor="@color/sv_text_dim"
       android:maxLines="1"
-      android:ellipsize="end" />
+      android:ellipsize="middle" />
   </LinearLayout>
 </LinearLayout>

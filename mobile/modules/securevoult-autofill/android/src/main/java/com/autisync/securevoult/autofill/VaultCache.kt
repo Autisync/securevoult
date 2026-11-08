@@ -29,6 +29,8 @@ data class AutofillLogin(
   val username: String,
   val password: String,
   val domains: List<String>,
+  /** Exact addresses (calls.autisync.com); older caches have none. */
+  val hosts: List<String>,
   val apps: List<String>,
 )
 
@@ -125,6 +127,7 @@ object VaultCache {
           username = l.optString("username"),
           password = l.optString("password"),
           domains = l.optJSONArray("domains").strings(),
+          hosts = l.optJSONArray("hosts").strings(),
           apps = l.optJSONArray("apps").strings(),
         )
       }

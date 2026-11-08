@@ -83,7 +83,16 @@ const forSite = (entries: PasswordEntry[], site: string, pageUrl?: string) => {
   return [...list.filter(exact), ...list.filter((e) => !exact(e))];
 };
 
-const summary = (e: PasswordEntry) => ({ id: e.id, title: e.website, username: e.username, hasTotp: !!parseTotp(e.totp) });
+/**
+ * What the menu under a login field shows: the item's name, username, and the
+ * address it was saved for, so two logins on one site (calls.autisync.com,
+ * crm.autisync.com) can be told apart. `exact` = saved for this very address.
+ */
+const summary = (e: PasswordEntry, pageHost = '') => {
+  const hosts = [e.url, ...(e.urls ?? [])].filter((u): u is string => !!u).map(hostOf).filter(Boolean);
+  const exact = !!pageHost && hosts.includes(pageHost);
+  return { id: e.id, title: e.website, username: e.username, hasTotp: !!parseTotp(e.totp), address: exact ? pageHost : (hosts[0] ?? ''), exact };
+};
 
 async function totpFor(e: PasswordEntry): Promise<string | null> {
   const cfg = parseTotp(e.totp);
@@ -174,7 +183,8 @@ async function handle(msg: Msg, sender: chrome.runtime.MessageSender): Promise<u
       const v = await unlockedVault();
       if (!v) return { locked: true, items: [] };
       const items = forSite(v.entries, site, sender.url);
-      return { items: (msg.kind === 'otp' ? items.filter((e) => parseTotp(e.totp)) : items).map(summary) };
+      const pageHost = hostOf(sender.url);
+      return { items: (msg.kind === 'otp' ? items.filter((e) => parseTotp(e.totp)) : items).map((e) => summary(e, pageHost)) };
     }
 
     case 'sv:fill': {

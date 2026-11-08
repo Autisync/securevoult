@@ -50,6 +50,8 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
   const { copied, copy } = useClipboard();
 
   const faviconUrl = getFaviconUrl(entry.url);
+  // The exact address it's saved for (calls.autisync.com), so logins on one site can be told apart.
+  const siteHost = (() => { try { return entry.url ? new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(entry.url) ? entry.url : `https://${entry.url}`).hostname.replace(/^www\./, '') : ''; } catch { return ''; } })();
   const showFavicon = !!faviconUrl && !faviconError;
 
   const copyToClipboard = async (text: string, key: string) => {
@@ -151,8 +153,11 @@ export function EntryCard({ entry, onEdit, onTagClick, onClick, compact }: Entry
           {entryType === 'card' && entry.card?.number && (
             <p className="text-xs text-muted-foreground truncate mt-0.5">•••• {entry.card.number.replace(/\s/g, '').slice(-4)}{entry.card.expiry ? ` · ${entry.card.expiry}` : ''}</p>
           )}
-          {entry.username && entryType !== 'note' && entryType !== 'wifi' && entryType !== 'document' && (
-            <p className="text-xs text-muted-foreground truncate mt-0.5">{entry.username}</p>
+          {(entry.username || (entryType === 'login' && siteHost)) && entryType !== 'note' && entryType !== 'wifi' && entryType !== 'document' && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5" title={[entry.username, siteHost].filter(Boolean).join(' · ')}>
+              {entry.username}
+              {entryType === 'login' && siteHost ? <>{entry.username ? ' · ' : ''}<span className="text-primary/80">{siteHost}</span></> : null}
+            </p>
           )}
           {!compact && entry.tags && entry.tags.length > 0 && (
             <div className="flex gap-1 mt-1 flex-wrap">

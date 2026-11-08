@@ -4,7 +4,10 @@
     <item name="android:windowAnimationStyle">@null</item>
     <item name="android:windowNoTitle">true</item>
   </style>
-  <color name="sv_gold">#CDA24C</color>
+  <!-- Each suggestion paints its own background, so the text is readable on any
+       browser's or keyboard's menu, light or dark. Dark mode: values-night. -->
+  <color name="sv_row_bg">#FFFFFF</color>
   <color name="sv_text">#1B1C1C</color>
   <color name="sv_text_dim">#6B655D</color>
+  <color name="sv_gold">#9A7029</color>
 </resources>

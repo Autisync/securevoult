@@ -89,7 +89,8 @@ class AutofillAuthActivity : FragmentActivity() {
 
   /**
    * Logins for this place first:
-   *  - a website: same site (google.com matches accounts.google.com);
+   *  - a website: saved for this exact address first (calls.autisync.com), then
+   *    the rest of the same site (autisync.com), each labelled with its address;
    *  - an app: logins saved for that app, then logins whose site name is in the
    *    app's package name (com.facebook.katana ↔ facebook.com), marked "suggested".
    * When nothing matches, every login, so the user can still pick one.
@@ -97,9 +98,12 @@ class AutofillAuthActivity : FragmentActivity() {
   private fun rank(logins: List<AutofillLogin>, domain: String?, pkg: String): List<Pair<AutofillLogin, String>> {
     val byName = logins.sortedBy { it.name.lowercase() }
     if (!domain.isNullOrBlank()) {
-      val site = Domains.baseDomain(domain)
-      val exact = byName.filter { site in it.domains }
-      if (exact.isNotEmpty()) return exact.map { it to site }
+      val host = domain.lowercase().removePrefix("www.")
+      val site = Domains.baseDomain(host)
+      val exact = byName.filter { host in it.hosts }
+      val sameSite = byName.filter { it !in exact && site in it.domains }
+      val label = { l: AutofillLogin -> l.hosts.firstOrNull { Domains.baseDomain(it) == site } ?: site }
+      if (exact.isNotEmpty() || sameSite.isNotEmpty()) return exact.map { it to host } + sameSite.map { it to label(it) }
     } else if (pkg.isNotBlank()) {
       val forApp = byName.filter { pkg in it.apps }
       if (forApp.isNotEmpty()) return forApp.map { it to "" }

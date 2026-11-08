@@ -26,7 +26,8 @@ export function subtitleOf(e: PasswordEntry): string {
     case 'wifi': return e.wifi?.ssid ?? '';
     case 'document': return e.document?.number ? `No. ${e.document.number}` : e.document?.fullName ?? '';
     case 'note': return (e.notes ?? '').split('\n')[0].slice(0, 60);
-    default: return e.username || hostLabel(e.url) || '';
+    // Username and the exact address, so logins on one site (calls. / crm.) can be told apart.
+    default: return [e.username, hostLabel(e.url)].filter(Boolean).join(' · ');
   }
 }
 

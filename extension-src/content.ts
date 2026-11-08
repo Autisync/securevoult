@@ -21,7 +21,7 @@ import { baseDomain } from '@/lib/domain';
     if (location.hostname === app.hostname) return;
   } catch { /* no app address configured */ }
 
-  type Item = { id: string; title: string; username: string; hasTotp: boolean };
+  type Item = { id: string; title: string; username: string; hasTotp: boolean; address?: string; exact?: boolean };
   type Kind = 'login' | 'otp';
 
   const send = <T = any>(msg: Record<string, unknown>): Promise<T | null> =>
@@ -111,6 +111,8 @@ import { baseDomain } from '@/lib/domain';
     button.item:hover, button.item:focus-visible { background: #2A2B2B; outline: none; }
     .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .u { color: #A8A196; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u .a { color: #D1A94C; }
+    .group { padding: 8px 10px 2px; color: #8F887D; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
     .card { position: fixed; right: 18px; top: 18px; width: 320px; background: #1A1B1B; color: #F4F1EA; border: 1px solid #333434;
       border-radius: 14px; box-shadow: 0 14px 34px rgba(0,0,0,.5); padding: 14px; }
     .card p { margin: 0 0 10px; color: #CFC8BA; overflow-wrap: anywhere; }
@@ -169,10 +171,23 @@ import { baseDomain } from '@/lib/domain';
       b.addEventListener('click', () => { closeMenu(); void send({ action: 'sv:unlock' }); });
       menu.appendChild(b);
     } else {
-      for (const item of res.items.slice(0, 8)) {
+      // Logins saved for this exact address first, under their own heading when
+      // the site has others too (calls.autisync.com vs the rest of autisync.com).
+      const shown = res.items.slice(0, 8);
+      const pageHost = location.hostname.replace(/^www\./, '');
+      const mixed = shown.some((i) => i.exact) && shown.some((i) => !i.exact);
+      let group: boolean | null = null;
+      for (const item of shown) {
+        if (mixed && !!item.exact !== group) {
+          group = !!item.exact;
+          menu.appendChild(el('div', 'group', group ? `Saved for ${pageHost}` : `Other logins on ${baseDomain(pageHost)}`));
+        }
         const b = el('button', 'item') as HTMLButtonElement;
+        b.title = [item.title, item.username, item.address].filter(Boolean).join('\n');
         b.appendChild(el('span', 't', kind === 'otp' ? `2FA code · ${item.title}` : item.title));
-        b.appendChild(el('span', 'u', item.username || (kind === 'otp' ? 'Fill the current code' : 'No username')));
+        const line = el('span', 'u', item.username || (kind === 'otp' ? 'Fill the current code' : 'No username'));
+        if (item.address) { line.appendChild(document.createTextNode(' · ')); line.appendChild(el('span', 'a', item.address)); }
+        b.appendChild(line);
         b.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus in the field
         b.addEventListener('click', () => void pick(item, field, kind));
         menu.appendChild(b);
